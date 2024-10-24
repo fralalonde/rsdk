@@ -21,31 +21,26 @@ jobs:
           toolchain: stable
           target: x86_64-pc-windows-msvc
 
+      # Extract the version number from the tag (e.g., v1.0.0)
+      - name: Extract version number
+        id: get_version
+        run: echo "::set-output name=VERSION::${GITHUB_REF#refs/tags/v}"
+
       # Build the project
       - name: Build the project
         run: cargo build --release --target x86_64-pc-windows-msvc
 
-      # Upload binary as an artifact
-      - name: Upload Release Binary
+      # Create the ZIP package with version number in the name
+      - name: Create ZIP package
+        run: |
+          $version = '${{ steps.get_version.outputs.VERSION }}'
+          $output = "rsdk-windows-$version.zip"
+          Compress-Archive -Path "target/x86_64-pc-windows-msvc/release/rsdk.exe", "powershell/*" -DestinationPath $output
+        shell: pwsh
+
+      # Upload the ZIP archive as an artifact
+      - name: Upload Release ZIP
         uses: actions/upload-artifact@v3
         with:
-          name: rsdk-windows
-          path: target/x86_64-pc-windows-gnu/release/rsdk.exe
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      # Checkout the repository
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      # Upload the binary to the GitHub release
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: target/x86_64-pc-windows-gnu/release/rsdk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # GitHub token automatically provided by Actions
+          name: rsdk-windows-${{ steps.get_version.outputs.VERSION }}
+          path: rsdk-windows-${{ steps.get_version.outputs.VERSION }}.zip

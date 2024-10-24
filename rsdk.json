@@ -5,17 +5,23 @@
   "license": "MIT",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/fralalonde/rsdk/releases/download/v1.0.0/rsdk.exe",
-      "hash": "sha256:PUT_YOUR_BINARY_HASH_HERE"
+      "url": "https://github.com/fralalonde/rsdk/releases/download/v1.0.0/rsdk-windows.zip",
+      "hash": "sha256:PUT_YOUR_ZIP_HASH_HERE"
     }
   },
   "bin": "rsdk.exe",
+  "extract_dir": ".",
   "checkver": {
     "github": "https://github.com/fralalonde/rsdk"
   },
   "autoupdate": {
     "64bit": {
-      "url": "https://github.com/fralalonde/rsdk/releases/download/v$version/rsdk.exe"
+      "url": "https://github.com/fralalonde/rsdk/releases/download/v$version/rsdk-windows.zip"
     }
-  }
+  },
+  "post_install": [
+    "if (!(Test-Path \"$env:PSModulePath -split ';' | Where-Object {$_ -eq \"$dir\\modules\"})) {",
+    "   [System.Environment]::SetEnvironmentVariable('PSModulePath', \"$env:PSModulePath;$dir\\modules\", [System.EnvironmentVariableTarget]::User)",
+    "}"
+  ]
 }

@@ -75,3 +75,26 @@ or
 To display a full list of commands and options:
 
 ``rsdk --help``
+
+## Release 
+
+### Prepare scoop release
+
+### Installation:
+When a user installs rsdk via Scoop, it will download and extract rsdk-windows.zip, which contains the rsdk.exe binary and the PowerShell module files.
+The rsdk.exe is added to the PATH, and the PowerShell module directory is added to the user's PSModulePath.
+
+### Autoupdate
+Future versions of rsdk will update by downloading the new ZIP files, extracting them, and updating the module path if necessary.
+
+### SHA-256 Hash
+Replace "PUT_YOUR_ZIP_HASH_HERE" with the correct SHA-256 hash of your rsdk-windows.zip. Generate it with the following command:
+  
+```powershell
+Get-FileHash "rsdk-windows.zip" -Algorithm SHA256
+```
+
+Or using sha256sum in Linux/macOS:
+```bash
+sha256sum rsdk-windows.zip
+```

@@ -1,28 +1,38 @@
-mod utils;
+
 mod api;
 mod error;
 mod dir;
 mod download;
+mod version;
 
-// use std::io::{Cursor};
+use std::fs;
+use std::sync::OnceLock;
 use clap::{Parser, Subcommand};
 use log::{info, error, debug};
 use env_logger;
+use crate::version::CandidateVersion;
 
 /// CLI Struct for command-line arguments
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 #[command(name = "rsdk", version = "0.1", about = "Rust SDK Manager")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
 
-    /// Verbose mode (-v for verbose)
     #[arg(short, long)]
     verbose: bool,
+
+    #[arg(short, long)]
+    force: bool,
+
+    #[arg(short, long)]
+    shell: String,
 }
 
+pub static ARGS: OnceLock<Cli> = OnceLock::new();
+
 /// Subcommands enum
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 enum Commands {
     Install {
         candidate: String,
@@ -33,21 +43,17 @@ enum Commands {
         version: String,
     },
     List {
-        candidate:  Option<String>,
-    },
-    Use {
-        candidate: String,
-        version: String,
+        candidate: Option<String>,
     },
     Default {
         candidate: String,
         version: String,
     },
-    Current {
-        candidate: Option<String>,
+    Use {
+        candidate: String,
+        version: String,
     },
     Flush {
-        data_type: String,
     },
 }
 
@@ -56,10 +62,7 @@ async fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let cli = Cli::parse();
-
-    if cli.verbose {
-        debug!("Verbose mode enabled");
-    }
+    let _ = ARGS.set(cli.clone());
 
     let dir = dir::RsdkDir::new()?;
 
@@ -77,13 +80,16 @@ async fn main() -> anyhow::Result<()> {
             let work_dir = tempdir.path().join("work");
 
             api.get_file2(candidate, &version, &zipfile).await?;
-            dir.install_from_zip(candidate, &version, &zipfile, &work_dir, true)?;
-            dir.set_default(candidate, &version)?;
-            println!("Installed");
+            let cv = CandidateVersion::new(&dir,candidate, &version);
+            cv.install_from_zip(&zipfile, &work_dir, true)?;
+            cv.set_default()?;
+            cv.make_current()?;
+            println!("Installed {candidate} {version}");
         }
         Commands::Uninstall { candidate, version } => {
-            dir.uninstall(candidate, &version)?;
-            println!("Uninstalled");
+            let cv = CandidateVersion::new(&dir,candidate, &version);
+            cv.uninstall()?;
+            println!("Uninstalled {candidate} {version}");
         }
         Commands::List { candidate } => {
             let api = api::Api::new(&dir.cache());
@@ -100,30 +106,18 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
-        Commands::Use { candidate, version } => {
-            if let Err(e) = utils::test_candidate_present(candidate) {
-                error!("Error: {}", e);
-            }
-            info!("Using candidate: {}, version: {}", candidate, version);
-            // Call use_candidate_version logic here
-        }
         Commands::Default { candidate, version } => {
-            if let Err(e) = utils::test_candidate_present(candidate) {
-                error!("Error: {}", e);
-            }
-            info!("Setting default version for candidate: {}, version: {}", candidate, version);
-            // Call set_default_version logic here
+            let cv = CandidateVersion::new(&dir, candidate, version);
+            cv.set_default()?
         }
-        Commands::Current { candidate } => {
-            match candidate {
-                Some(c) => info!("Showing current version for candidate: {}", c),
-                None => info!("Showing current versions for all candidates"),
-            }
-            // Call show_current_version logic here
+        Commands::Use { candidate, version } => {
+            let cv = CandidateVersion::new(&dir, candidate, version);
+            cv.set_default()?
         }
-        Commands::Flush { data_type } => {
-            info!("Flushing cache of type: {}", data_type);
-            // Call clear_cache logic here
+        Commands::Flush { } => {
+            println!("Flushing cache");
+            fs::remove_dir_all(dir.cache())?;
+            fs::create_dir_all(dir.cache())?
         }
     }
     Ok(())
