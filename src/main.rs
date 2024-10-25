@@ -15,7 +15,7 @@ use crate::version::CandidateVersion;
 /// CLI Struct for command-line arguments
 #[derive(Parser, Clone)]
 #[command(name = "rsdk", version = "0.1", about = "Rust SDK Manager")]
-struct Cli {
+pub struct Cli {
     #[command(subcommand)]
     command: Commands,
 
