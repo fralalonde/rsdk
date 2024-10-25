@@ -6,6 +6,7 @@ mod download;
 mod version;
 
 use std::fs;
+use std::path::Path;
 use std::sync::OnceLock;
 use clap::{Parser, Subcommand};
 use log::{info, error, debug};
@@ -26,7 +27,10 @@ pub struct Cli {
     force: bool,
 
     #[arg(short, long)]
-    shell: Option<String>
+    shell: Option<String>,
+
+    #[arg(short, long)]
+    envout: Option<String>
 }
 
 pub static ARGS: OnceLock<Cli> = OnceLock::new();

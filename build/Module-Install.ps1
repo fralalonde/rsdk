@@ -42,12 +42,7 @@ Set-Content -Path $psm1DestinationPath -Value $updatedContent
 
 Write-Host "Module installed in $destinationPath"
 
-
-Import-Module $ModuleName
-# FIXME can module be stacked? need to do this for it to be reliable
-Remove-Module -Name $ModuleName -ErrorAction SilentlyContinue
 Remove-Module -Name $ModuleName -ErrorAction SilentlyContinue
 Import-Module $ModuleName
-
 
 Write-Host "Module $ModuleName imported"

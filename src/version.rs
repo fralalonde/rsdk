@@ -1,13 +1,14 @@
-use std::fs::{create_dir_all, File};
+use std::fs::{create_dir_all, File, OpenOptions};
 use std::{env, fs, io};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use anyhow::{bail, Context};
-use log::debug;
+use log::{debug, warn};
 use symlink::remove_symlink_dir;
 use zip::ZipArchive;
 use crate::ARGS;
 use crate::dir::RsdkDir;
+use std::io::Write;
 
 pub struct CandidateVersion {
     rsdk: RsdkDir,
@@ -44,13 +45,21 @@ impl CandidateVersion {
         let new_path = env::join_paths(paths).expect("Failed to join paths");
 
         if let Some(shell) = &ARGS.get().unwrap().shell {
-            match shell.as_ref()
-            {
-                "powershell" => {
-                    println!("#cmdmagic#PATH='{}'", new_path.to_str().unwrap());
-                    println!("#cmdmagic#{}='{}'", &self.home, &self.path.to_str().unwrap());
+            if let Some(envout) = &ARGS.get().unwrap().envout {
+                let mut file = OpenOptions::new()
+                    .write(true)
+                    .truncate(true)
+                    .open(envout)
+                    .expect(&format!("Failed to create envout file {envout}"));
+                match shell.as_ref()                {
+                    "powershell" => {
+                        writeln!(file, "$env:PATH='{}'", new_path.to_str().unwrap())?;
+                        writeln!(file, "$env:{}='{}'", &self.home, &self.path.to_str().unwrap())?;
+                    }
+                    _ => {}
                 }
-                _ => {}
+            } else {
+                warn!("--shell specified but no --envout provided")
             }
         }
         Ok(())
@@ -91,14 +100,14 @@ impl CandidateVersion {
             .collect::<Vec<_>>();
 
         if entries.len() != 1 {
-            anyhow::bail!(format!("Expected exactly one entry in {:?}, found {}", work_dir, entries.len()));
+            bail!(format!("Expected exactly one entry in {:?}, found {}", work_dir, entries.len()));
         }
 
         let entry = &entries[0];
         let entry_path = entry.path();
 
         if !entry_path.is_dir() {
-            anyhow::bail!(format!("{:?} is not a directory", entry_path));
+            bail!(format!("{:?} is not a directory", entry_path));
         }
 
         if target_dir.exists() {
@@ -106,12 +115,12 @@ impl CandidateVersion {
                 debug!("removing previous {:?}", target_dir);
                 fs::remove_dir_all(&target_dir)?;
             } else {
-                anyhow::bail!(format!("{:?} already exists", target_dir));
+                bail!(format!("{:?} already exists", target_dir));
             }
         }
 
         debug!("renaming {:?} to {:?}", entry_path, target_dir);
-        fs::rename(&entry_path, target_dir).expect("bouzouki");
+        fs::rename(&entry_path, target_dir)?;
         Ok(())
     }
 
