@@ -11,4 +11,4 @@ install-module release="false":
     else \
         rsdk_path="target/debug/rsdk.exe"; \
     fi; \
-    pwsh ./build/Module-Install.ps1 -SourceDirectory "./templates/powershell" -TargetPath "$rsdk_path"
+    pwsh ./build/Module-Install.ps1 -SourceDirectory "./templates/powershell" -ExePath "$rsdk_path"

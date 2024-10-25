@@ -3,7 +3,7 @@ param (
     [string]$SourceDirectory,   # Path to the directory containing template files (e.g., .psd1, .psm1)
 
     [Parameter(Mandatory = $true)]
-    [string]$TargetPath,        # Path to `rsdk.exe` (either debug or release)
+    [string]$ExePath,
 
     [string]$ModuleName = "Rsdk"
 )
@@ -27,18 +27,27 @@ New-Item -ItemType Directory -Path $destinationPath -Force
 Write-Host "Copying module files from $SourceDirectory to $destinationPath"
 Copy-Item -Path "$SourceDirectory\*" -Destination $destinationPath -Recurse -Exclude "Rsdk.psm1"
 
-# Copy rsdk.exe binary to the module directory if needed
-$rsdkBinarySource = [System.IO.Path]::GetFullPath($TargetPath)
+
+$rsdkBinarySource = [System.IO.Path]::GetFullPath($ExePath)
 
 # Generate rsdk.psm1 from template with the correct path to rsdk.exe
 $psm1TemplatePath = Join-Path -Path $SourceDirectory -ChildPath "Rsdk.psm1"
 $psm1DestinationPath = Join-Path -Path $destinationPath -ChildPath "Rsdk.psm1"
-$rsdkPathEscaped = $rsdkBinarySource -replace '\\', '\\\\'  # Escape backslashes for PowerShell
+$rsdkPathEscaped = $rsdkBinarySource # -replace '\\', '\\\\'  # Escape backslashes for PowerShell
 
 Write-Host "Generating rsdk.psm1 with rsdk.exe path $rsdkPathEscaped"
 $templateContent = Get-Content -Path $psm1TemplatePath -Raw
 $updatedContent = $templateContent -replace 'PUT_RSDK_PATH_HERE', $rsdkPathEscaped
 Set-Content -Path $psm1DestinationPath -Value $updatedContent
 
-Write-Host "Module installed successfully in $destinationPath."
-Write-Host "You can now import the module using 'Import-Module $ModuleName'."
+Write-Host "Module installed in $destinationPath"
+
+
+Import-Module $ModuleName
+# FIXME can module be stacked? need to do this for it to be reliable
+Remove-Module -Name $ModuleName -ErrorAction SilentlyContinue
+Remove-Module -Name $ModuleName -ErrorAction SilentlyContinue
+Import-Module $ModuleName
+
+
+Write-Host "Module $ModuleName imported"

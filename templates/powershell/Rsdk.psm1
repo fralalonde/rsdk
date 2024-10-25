@@ -1,45 +1,24 @@
-# Helper function to find rsdk.exe dynamically
-function Get-RsdkPath {
-    # Try to locate rsdk.exe in the system's PATH
-    $rsdkPath = PUT_RSDK_PATH_HERE
-
-    # If rsdk.exe is not found in the PATH, throw an error
-    if (-not $rsdkPath) {
-        throw "Could not find rsdk.exe. Please ensure it is installed and in your PATH."
-    }
-
-    return $rsdkPath
-}
-
-# Helper function to invoke rsdk.exe, tee the output to the console, and parse environment variables
 function Invoke-RsdkCommand {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Command,
-
         [string[]]$Args
     )
 
     # Find the path to rsdk.exe dynamically
-    $rsdkPath = Get-RsdkPath
+    $rsdkPath = "PUT_RSDK_PATH_HERE"
 
     # Build the argument list, appending --shell "powershell"
-    $argumentList = @($Command) + $Args + "--shell" + "powershell"
+    $argumentList = @("--shell", "powershell", $Command) + $Args
 
-    # Create a temporary file to capture the output
-    $tempFile = New-TemporaryFile
-
-    # Run rsdk.exe, capturing its output to a temporary file and displaying it live (tee-like behavior)
-    $process = Start-Process -FilePath $rsdkPath -ArgumentList $argumentList `
-                             -RedirectStandardOutput $tempFile -NoNewWindow -PassThru -Wait
-
-    # After the process finishes, read the output and display it live as it is read
-    $output = Get-Content -Path $tempFile | Tee-Object -Variable teeOutput
+    # Run rsdk.exe, capturing output live (tee-like behavior)
+    $output = & $rsdkPath $argumentList
+    #| Tee-Object -Variable teeOutput
 
     # Parse the output for environment variable changes and apply them
     foreach ($line in $teeOutput) {
-        if ($line -match "^\$env:([A-Za-z_]+)='([^']+)'") {
+        if ($line -match '^#cmdmagic#([A-Za-z_]+)="(.*)"') {
             $varName = $matches[1]
             $varValue = $matches[2]
 
@@ -47,63 +26,79 @@ function Invoke-RsdkCommand {
             Set-Item -Path "Env:$varName" -Value $varValue
             Write-Host "Set environment variable $varName to $varValue"
         }
+        else {
+            Write-Host $line
+        }
     }
-
-    # Clean up the temporary file
-    Remove-Item $tempFile
 }
 
 # Example command to install an SDK via rsdk.exe
 function Rsdk-Install {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$SDK,
 
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Version
     )
 
-    Invoke-RsdkCommand -Command "install" -Args @($SDK, $Version)
+    try {
+        Invoke-RsdkCommand -Command "install" -Args @($SDK, $Version)
+    } catch {
+        Write-Error "Failed to install $SDK version $Version. Error: $_"
+    }
 }
 
 # Command to uninstall an SDK via rsdk.exe
 function Rsdk-Uninstall {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$SDK
     )
 
-    Invoke-RsdkCommand -Command "uninstall" -Args @($SDK)
+    try {
+        Invoke-RsdkCommand -Command "uninstall" -Args @($SDK)
+    } catch {
+        Write-Error "Failed to uninstall $SDK. Error: $_"
+    }
 }
 
 # Command to set a default SDK via rsdk.exe
 function Rsdk-Default {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$SDK,
 
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Version
     )
 
-    Invoke-RsdkCommand -Command "default" -Args @($SDK, $Version)
+    try {
+        Invoke-RsdkCommand -Command "default" -Args @($SDK, $Version)
+    } catch {
+        Write-Error "Failed to set default SDK $SDK to version $Version. Error: $_"
+    }
 }
 
 # Command to use a specific SDK version via rsdk.exe
 function Rsdk-Use {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$SDK,
 
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Version
     )
 
-    Invoke-RsdkCommand -Command "use" -Args @($SDK, $Version)
+    try {
+        Invoke-RsdkCommand -Command "use" -Args @($SDK, $Version)
+    } catch {
+        Write-Error "Failed to set SDK $SDK to use version $Version. Error: $_"
+    }
 }
 
 # Command to flush the SDK cache via rsdk.exe
@@ -111,13 +106,24 @@ function Rsdk-Flush {
     [CmdletBinding()]
     param ()
 
-    Invoke-RsdkCommand -Command "flush" -Args @()
+    try {
+        Invoke-RsdkCommand -Command "flush" -Args @()
+    } catch {
+        Write-Error "Failed to flush SDK cache. Error: $_"
+    }
 }
 
 # Command to list available SDKs via rsdk.exe
 function Rsdk-List {
     [CmdletBinding()]
-    param ()
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$Candidate
+    )
 
-    Invoke-RsdkCommand -Command "list" -Args @()
+    try {
+        Invoke-RsdkCommand -Command "list" -Args @()
+    } catch {
+        Write-Error "Failed to list SDKs. Error: $_"
+    }
 }

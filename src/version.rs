@@ -47,8 +47,8 @@ impl CandidateVersion {
             match shell.as_ref()
             {
                 "powershell" => {
-                    println!("$env:PATH={}", new_path.to_str().unwrap());
-                    println!("$env:{}={:?}", &self.home, &self.path);
+                    println!("#cmdmagic#PATH='{}'", new_path.to_str().unwrap());
+                    println!("#cmdmagic#{}='{}'", &self.home, &self.path.to_str().unwrap());
                 }
                 _ => {}
             }
