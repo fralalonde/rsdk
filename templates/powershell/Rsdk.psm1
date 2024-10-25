@@ -52,17 +52,17 @@ function Rsdk-Uninstall {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [string]$SDK,
+        [string]$Candidate,
 
         [string]$Version
     )
 
     try {
-        $args = @($SDK)
+        $args = @($Candidate)
         if ($Version) {
             $args += $Version
         }
-        Invoke-RsdkCommand -Command "uninstall" -Args @($SDK)
+        Invoke-RsdkCommand -Command "uninstall" -Args $args
     } catch {
         Write-Error "Failed to uninstall $SDK. Error: $_"
     }
@@ -73,14 +73,14 @@ function Rsdk-Default {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [string]$SDK,
+        [string]$Candidate,
 
         [Parameter(Mandatory = $true)]
         [string]$Version
     )
 
     try {
-        Invoke-RsdkCommand -Command "default" -Args @($SDK, $Version)
+        Invoke-RsdkCommand -Command "default" -Args @($Candidate, $Version)
     } catch {
         Write-Error "Failed to set default SDK $SDK to version $Version. Error: $_"
     }
@@ -91,7 +91,7 @@ function Rsdk-Use {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [string]$SDK,
+        [string]$Candidate,
 
         [Parameter(Mandatory = $true)]
         [string]$Version
@@ -100,7 +100,7 @@ function Rsdk-Use {
     try {
         Invoke-RsdkCommand -Command "use" -Args @($SDK, $Version)
     } catch {
-        Write-Error "Failed to set SDK $SDK to use version $Version. Error: $_"
+        Write-Error "Failed to set candidate $Candidate to use version $Version. Error: $_"
     }
 }
 
@@ -112,7 +112,7 @@ function Rsdk-Flush {
     try {
         Invoke-RsdkCommand -Command "flush" -Args @()
     } catch {
-        Write-Error "Failed to flush SDK cache. Error: $_"
+        Write-Error "Failed to flush cache. Error: $_"
     }
 }
 
@@ -125,11 +125,11 @@ function Rsdk-List {
 
     try {
         $args = @()
-        if ($Version) {
+        if ($Candidate) {
             $args += $Candidate
         }
         Invoke-RsdkCommand -Command "list" -Args $args
     } catch {
-        Write-Error "Failed to list SDKs. Error: $_"
+        Write-Error "Failed to list candidates. Error: $_"
     }
 }
