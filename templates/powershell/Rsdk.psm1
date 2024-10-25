@@ -1,7 +1,7 @@
 # Helper function to find rsdk.exe dynamically
 function Get-RsdkPath {
     # Try to locate rsdk.exe in the system's PATH
-    $rsdkPath = (Get-Command rsdk.exe -ErrorAction SilentlyContinue).Path
+    $rsdkPath = PUT_RSDK_PATH_HERE
 
     # If rsdk.exe is not found in the PATH, throw an error
     if (-not $rsdkPath) {

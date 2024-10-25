@@ -7,13 +7,13 @@
 1. Add the custom Scoop bucket (self-hosted from this repo):
 
     ```bash
-    template bucket add rsdk-bucket https://github.com/fralalonde/rsdk
+    templates bucket add rsdk-bucket https://github.com/fralalonde/rsdk
     ```
 
 2. Install `rsdk`:
 
     ```bash
-    template install rsdk
+    templates install rsdk
     ```
 
 ## Manual Installation

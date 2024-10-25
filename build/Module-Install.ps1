@@ -1,10 +1,11 @@
 param (
     [Parameter(Mandatory = $true)]
-    [string]$SourceDirectory,   # Path to the local directory containing the module files (e.g., .psd1, .psm1 files)
+    [string]$SourceDirectory,   # Path to the directory containing template files (e.g., .psd1, .psm1)
 
-    [string]$TargetDir = "target/debug",  # Default to `target/debug` for rsdk.exe debug version
+    [Parameter(Mandatory = $true)]
+    [string]$TargetPath,        # Path to `rsdk.exe` (either debug or release)
 
-    [string]$ModuleName         # Optional: Module name if it differs from the source directory name
+    [string]$ModuleName = "Rsdk"
 )
 
 # Get the PowerShell module path for the current user
@@ -17,44 +18,26 @@ if (-not $ModuleName) {
 }
 $destinationPath = Join-Path -Path $targetModulePath -ChildPath $ModuleName
 
-Write-Host "Installing module from $SourceDirectory and rsdk.exe from $TargetDir to $destinationPath..."
-
-# Check if the destination path already exists and prompt for overwrite if necessary
 if (Test-Path -Path $destinationPath) {
-    $overwrite = Read-Host "Module already exists. Do you want to overwrite? (y/n)"
-    if ($overwrite -ne 'y') {
-        Write-Host "Installation aborted."
-        exit
-    }
-
-    # Remove existing module files
     Remove-Item -Recurse -Force -Path $destinationPath
 }
+New-Item -ItemType Directory -Path $destinationPath -Force
 
 # Copy the PowerShell module files except rsdk.psm1 from the source to the destination
-Write-Host "Copying module files from $SourceDirectory..."
-Copy-Item -Path "$SourceDirectory\*" -Destination $destinationPath -Recurse -Exclude "rsdk.psm1"
+Write-Host "Copying module files from $SourceDirectory to $destinationPath"
+Copy-Item -Path "$SourceDirectory\*" -Destination $destinationPath -Recurse -Exclude "Rsdk.psm1"
 
-# Copy rsdk.exe binary to the module directory
-$rsdkBinarySource = Join-Path -Path $TargetDir -ChildPath "rsdk.exe"
-$rsdkBinaryDestination = Join-Path -Path $destinationPath -ChildPath "rsdk.exe"
+# Copy rsdk.exe binary to the module directory if needed
+$rsdkBinarySource = [System.IO.Path]::GetFullPath($TargetPath)
 
-if (Test-Path -Path $rsdkBinarySource) {
-    Write-Host "Copying rsdk.exe from $TargetDir to module directory..."
-    Copy-Item -Path $rsdkBinarySource -Destination $rsdkBinaryDestination
-} else {
-    Write-Error "rsdk.exe not found in target directory: $TargetDir. Make sure it has been built in debug mode."
-    exit 1
-}
+# Generate rsdk.psm1 from template with the correct path to rsdk.exe
+$psm1TemplatePath = Join-Path -Path $SourceDirectory -ChildPath "Rsdk.psm1"
+$psm1DestinationPath = Join-Path -Path $destinationPath -ChildPath "Rsdk.psm1"
+$rsdkPathEscaped = $rsdkBinarySource -replace '\\', '\\\\'  # Escape backslashes for PowerShell
 
-# Generate rsdk.psm1 with the correct path to rsdk.exe
-$psm1TemplatePath = Join-Path -Path $SourceDirectory -ChildPath "rsdk.psm1"
-$psm1DestinationPath = Join-Path -Path $destinationPath -ChildPath "rsdk.psm1"
-$rsdkPath = Join-Path -Path $destinationPath -ChildPath "rsdk.exe" -replace '\\', '\\\\'  # Escape backslashes for PowerShell
-
-Write-Host "Generating rsdk.psm1 with rsdk.exe path $rsdkPath..."
+Write-Host "Generating rsdk.psm1 with rsdk.exe path $rsdkPathEscaped"
 $templateContent = Get-Content -Path $psm1TemplatePath -Raw
-$updatedContent = $templateContent -replace 'PUT_RSDK_PATH_HERE', $rsdkPath
+$updatedContent = $templateContent -replace 'PUT_RSDK_PATH_HERE', $rsdkPathEscaped
 Set-Content -Path $psm1DestinationPath -Value $updatedContent
 
 Write-Host "Module installed successfully in $destinationPath."
