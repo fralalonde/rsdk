@@ -43,12 +43,15 @@ impl CandidateVersion {
         paths.push(self.bin());
         let new_path = env::join_paths(paths).expect("Failed to join paths");
 
-        match ARGS.get().unwrap().shell.as_ref() {
-            "powershell" => {
-                println!("$env:PATH={}", new_path.to_str().unwrap());
-                println!("$env:{}={:?}", &self.home, &self.path);
+        if let Some(shell) = &ARGS.get().unwrap().shell {
+            match shell.as_ref()
+            {
+                "powershell" => {
+                    println!("$env:PATH={}", new_path.to_str().unwrap());
+                    println!("$env:{}={:?}", &self.home, &self.path);
+                }
+                _ => {}
             }
-            _ => {}
         }
         Ok(())
     }
@@ -125,8 +128,8 @@ impl CandidateVersion {
         let current_version = self.rsdk.current_default(&self.candidate)?;
         let default_symlink_path = self.rsdk.default_symlink_path(&self.candidate);
         if let Some(current) = current_version {
-                debug!("removing previous symlink {:?} to version {}", default_symlink_path, current.version);
-                remove_symlink_dir(&default_symlink_path)?;
+            debug!("removing previous symlink {:?} to version {}", default_symlink_path, current.version);
+            remove_symlink_dir(&default_symlink_path)?;
         }
         debug!("symlinking {:?} to {:?}", self.path, default_symlink_path);
         Ok(symlink::symlink_dir(&self.path, default_symlink_path)?)

@@ -26,7 +26,7 @@ struct Cli {
     force: bool,
 
     #[arg(short, long)]
-    shell: String,
+    shell: Option<String>
 }
 
 pub static ARGS: OnceLock<Cli> = OnceLock::new();
