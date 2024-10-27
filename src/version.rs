@@ -1,21 +1,18 @@
-use std::fs::{create_dir_all, File, OpenOptions};
+use std::fs::{create_dir_all, File};
 use std::{env, fs, io};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use anyhow::{bail, Context};
-use log::{debug, warn};
+use log::{debug};
 use symlink::remove_symlink_dir;
 use zip::ZipArchive;
-use crate::ARGS;
+use crate::{shell};
 use crate::dir::RsdkDir;
-use std::io::Write;
 
 pub struct CandidateVersion {
     rsdk: RsdkDir,
     candidate: String,
     version: String,
-    pub path: PathBuf,
-    pub home: String,
 }
 
 impl CandidateVersion {
@@ -24,13 +21,19 @@ impl CandidateVersion {
             rsdk: dir.clone(),
             candidate: candidate.to_string(),
             version: version.to_string(),
-            path: dir.candidate_path(candidate).join(version),
-            home: format!("{}_HOME", candidate.to_uppercase()),
         }
     }
 
     pub fn bin(&self) -> PathBuf {
-        self.path.join("bin")
+        self.path().join("bin")
+    }
+
+    pub fn path(&self) -> PathBuf {
+        self.rsdk.candidate_path(&self.candidate).join(&self.version)
+    }
+
+    pub fn home(&self) -> String {
+        format!("{}_HOME", self.candidate.to_uppercase())
     }
 
     // FIXME this can only be done from within a shell script
@@ -43,25 +46,8 @@ impl CandidateVersion {
 
         paths.push(self.bin());
         let new_path = env::join_paths(paths).expect("Failed to join paths");
-
-        if let Some(shell) = &ARGS.get().unwrap().shell {
-            if let Some(envout) = &ARGS.get().unwrap().envout {
-                let mut file = OpenOptions::new()
-                    .write(true)
-                    .truncate(true)
-                    .open(envout)
-                    .expect(&format!("Failed to create envout file {envout}"));
-                match shell.as_ref()                {
-                    "powershell" => {
-                        writeln!(file, "$env:PATH='{}'", new_path.to_str().unwrap())?;
-                        writeln!(file, "$env:{}='{}'", &self.home, &self.path.to_str().unwrap())?;
-                    }
-                    _ => {}
-                }
-            } else {
-                warn!("--shell specified but no --envout provided")
-            }
-        }
+        shell::set_var("PATH", &new_path.to_string_lossy())?;
+        shell::set_var(&self.home(), &self.path().to_string_lossy())?;
         Ok(())
     }
 
@@ -93,7 +79,7 @@ impl CandidateVersion {
         }
 
         // unzip complete, proceed to move to final dest
-        let target_dir = &self.path;
+        let target_dir = &self.path();
 
         let entries = fs::read_dir(work_dir)?
             .filter_map(|res| res.ok())
@@ -125,7 +111,7 @@ impl CandidateVersion {
     }
 
     pub fn uninstall(&self) -> anyhow::Result<()> {
-        let target_dir = &self.path;
+        let target_dir = self.path();
         if !target_dir.exists() {
             bail!(format!("no candidate {} version {}", self.candidate, self.version))
         }
@@ -140,15 +126,15 @@ impl CandidateVersion {
             debug!("removing previous symlink {:?} to version {}", default_symlink_path, current.version);
             remove_symlink_dir(&default_symlink_path)?;
         }
-        debug!("symlinking {:?} to {:?}", self.path, default_symlink_path);
-        Ok(symlink::symlink_dir(&self.path, default_symlink_path)?)
+        debug!("symlinking {:?} to {:?}", self.path(), default_symlink_path);
+        Ok(symlink::symlink_dir(&self.path(), default_symlink_path)?)
     }
 
-    pub fn is_default(&self) -> bool {
-        let cdef_path = self.rsdk.candidate_path(&self.candidate).join("default");
-        match fs::read_link(&cdef_path) {
-            Ok(p) => p.eq(&self.path),
-            Err(_) => false
-        }
-    }
+    // pub fn is_default(&self) -> bool {
+    //     let cdef_path = self.rsdk.candidate_path(&self.candidate).join("default");
+    //     match fs::read_link(&cdef_path) {
+    //         Ok(p) => p.eq(&self.path()),
+    //         Err(_) => false
+    //     }
+    // }
 }

@@ -1,9 +1,9 @@
-
 use std::path::{Path};
 use anyhow::{Result};
 use reqwest::{Client, IntoUrl};
 use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache, HttpCacheOptions};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use crate::ARGS;
 use crate::download::download_with_progress;
 
 pub struct Api {
@@ -12,14 +12,37 @@ pub struct Api {
     platform: String,
 }
 
+enum Platform {
+    Cygwin,
+    Sunos,
+    Freebsd,
+    Mac,
+    Linux,
+    Windows,
+    Msys,
+}
+
+enum Arch {
+    X64,
+    Aarch64,
+}
+
 impl Api {
     pub fn new(cache_dir: &Path) -> Api {
         let cache_manager = CACacheManager {
             path: cache_dir.to_path_buf(),
         };
 
+        let cache_mode = if ARGS.get().unwrap().offline {
+            // only use cache, fail if unavailable
+            CacheMode::OnlyIfCached
+        } else {
+            CacheMode::Default
+        };
+
+
         let cache = HttpCache {
-            mode: CacheMode::Default,
+            mode: cache_mode,
             manager: cache_manager,
             options: HttpCacheOptions::default(),
         };
@@ -40,10 +63,10 @@ impl Api {
         Ok(response.text().await?)
     }
 
-    pub async fn get_api_version(&self) -> Result<String> {
-        let base_url = &self.base_url;
-        Ok(self.get_text(&format!("{base_url}/broker/download/sdkman/version/stable")).await?)
-    }
+    // pub async fn get_api_version(&self) -> Result<String> {
+    //     let base_url = &self.base_url;
+    //     Ok(self.get_text(&format!("{base_url}/broker/download/sdkman/version/stable")).await?)
+    // }
 
     pub async fn get_candidates(&self) -> Result<Vec<String>> {
         let base_url = &self.base_url;
@@ -91,14 +114,7 @@ impl Api {
         Ok(self.get_text(&format!("{base_url}/candidates/default/{candidate}")).await?)
     }
 
-    // pub async fn get_file(&self, candidate: &str, version: &str) -> Result<Response> {
-    //     let base_url = &self.base_url;
-    //     let platform = &self.platform;
-    //     let url = format!("{base_url}/broker/download/{candidate}/{version}/{platform}");
-    //     Ok(self.client.get(url).send().await?)
-    // }
-
-    pub async fn get_file2(&self, candidate: &str, version: &str, file: &Path) -> Result<()> {
+    pub async fn get_file(&self, candidate: &str, version: &str, file: &Path) -> Result<()> {
         let base_url = &self.base_url;
         let platform = &self.platform;
         let url = format!("{base_url}/broker/download/{candidate}/{version}/{platform}");

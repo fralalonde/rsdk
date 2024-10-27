@@ -2,7 +2,6 @@ use fs::create_dir_all;
 use std::{fs, io};
 use std::path::{PathBuf};
 use directories::UserDirs;
-
 use crate::version::CandidateVersion;
 
 #[derive(Clone)]
@@ -32,9 +31,29 @@ impl RsdkDir {
             return Ok(None);
         }
         let linked = fs::read_link(def)?;
-        let version = linked.as_path().iter().last().unwrap().to_str().unwrap().to_string();
-        // FIXME no unwrap, proper err handling
-        Ok(Some(CandidateVersion::new(&self, candidate, &version)))
+        Ok(linked.as_path().iter().last()
+            .and_then(|version| version.to_str().map(|version| version.to_owned()))
+            .map(|version| CandidateVersion::new(&self, candidate, &version)))
+    }
+
+    pub fn all_defaults(&self) -> anyhow::Result<Vec<CandidateVersion>> {
+        let mut defaults = Vec::new();
+        let candidates_dir = self.candidates();
+
+        // Iterate over directories in the `candidates` path
+        for entry in fs::read_dir(candidates_dir)? {
+            let entry = entry?;
+            if entry.file_type()?.is_dir() {
+                if let Some(candidate) = entry.file_name().to_str() {
+                    // Check if there is a default version for this candidate
+                    if let Some(default_version) = self.current_default(candidate)? {
+                        defaults.push(default_version);
+                    }
+                }
+            }
+        }
+
+        Ok(defaults)
     }
 
     pub fn candidates(&self) -> PathBuf {

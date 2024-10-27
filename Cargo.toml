@@ -20,3 +20,9 @@ bytes = "1.8"
 indicatif = "0.17"
 futures-util = "0.3"
 tempfile = "3"
+
+[profile.release]
+opt-level = "z"              # Optimize for binary size
+lto = "fat"                  # Link-time optimization across all crates
+codegen-units = 1            # Single codegen unit for better optimizations
+strip = "symbols"            # Strip debug symbols to reduce size
