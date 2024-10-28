@@ -1,6 +1,6 @@
 use std::fs::{create_dir_all, File};
 use std::{env, fs, io};
-use std::io::BufReader;
+use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 use anyhow::{bail, Context};
 use log::{debug};
@@ -8,6 +8,8 @@ use symlink::remove_symlink_dir;
 use crate::{shell};
 use crate::dir::RsdkDir;
 
+#[cfg(unix)]
+use std::io::BufReader;
 #[cfg(unix)]
 use tar::Archive;
 #[cfg(unix)]
@@ -20,6 +22,12 @@ pub struct CandidateVersion {
     rsdk: RsdkDir,
     candidate: String,
     version: String,
+}
+
+impl Display for CandidateVersion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{} {}", self.candidate, self.version))
+    }
 }
 
 impl CandidateVersion {
@@ -36,15 +44,15 @@ impl CandidateVersion {
     }
 
     pub fn path(&self) -> PathBuf {
-        self.rsdk.candidate_path(&self.candidate).join(&self.version)
+        self.rsdk.candidate_dir(&self.candidate).join(&self.version)
     }
 
     pub fn home(&self) -> String {
         format!("{}_HOME", self.candidate.to_uppercase())
     }
 
-    pub fn make_current(&self) -> anyhow::Result<()> {
-        let any_active = self.rsdk.candidate_path(&self.candidate);
+    pub fn set_current(&self) -> anyhow::Result<()> {
+        let any_active = self.rsdk.candidate_dir(&self.candidate);
         let path = env::var_os("PATH").unwrap_or_default();
         let mut paths: Vec<_> = env::split_paths(&path)
             .filter(|p| !p.starts_with(&any_active))
@@ -151,6 +159,10 @@ impl CandidateVersion {
         }
         debug!("symlinking {:?} to {:?}", self.path(), default_symlink_path);
         Ok(symlink::symlink_dir(self.path(), default_symlink_path)?)
+    }
+
+    pub fn is_installed(&self) -> bool {
+        self.path().exists()
     }
 
     // pub fn is_default(&self) -> bool {

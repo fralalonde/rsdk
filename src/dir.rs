@@ -25,7 +25,7 @@ impl RsdkDir {
     }
 
     pub fn default_symlink_path(&self, candidate: &str) -> PathBuf {
-        self.candidate_path(candidate).join("default")
+        self.candidate_dir(candidate).join("default")
     }
 
     pub fn current_default(&self, candidate: &str) -> anyhow::Result<Option<CandidateVersion>> {
@@ -55,8 +55,31 @@ impl RsdkDir {
                 }
             }
         }
-
         Ok(defaults)
+    }
+
+    pub fn all_versions(&self) -> anyhow::Result<Vec<CandidateVersion>> {
+        let mut versions = Vec::new();
+        let candidates_dir = self.candidates();
+
+        // Iterate over directories in the `candidates` path
+        for entry in fs::read_dir(candidates_dir)? {
+            let c_entry = entry?;
+            if c_entry.file_type()?.is_dir() {
+                if let Some(candidate) = c_entry.file_name().to_str() {
+                    for v_entry in fs::read_dir(self.candidate_dir(candidate))? {
+                        let vv = v_entry?;
+                        if vv.file_type()?.is_dir() {
+                            if let Some(version) = vv.file_name().to_str() {
+                                let cv = CandidateVersion::new(&self, candidate, version);
+                                versions.push(cv);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(versions)
     }
 
     pub fn candidates(&self) -> PathBuf {
@@ -70,7 +93,7 @@ impl RsdkDir {
         self.root.join("temp")
     }
 
-    pub fn candidate_path(&self, candidate: &str) -> PathBuf {
+    pub fn candidate_dir(&self, candidate: &str) -> PathBuf {
         self.candidates().join(candidate)
     }
 }

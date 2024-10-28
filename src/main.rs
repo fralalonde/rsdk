@@ -7,7 +7,8 @@ mod shell;
 mod http;
 mod args;
 
-use std::{env, fs};
+use std::{env, fs, io};
+use std::io::Write;
 use clap::{Parser, Subcommand};
 use log::debug;
 use crate::args::{Cli, ARGS};
@@ -21,6 +22,10 @@ enum Commands {
     Install {
         candidate: String,
         version: Option<String>,
+        #[arg(short, long)]
+        force: bool,
+        #[arg(short, long)]
+        default: bool,
     },
     Uninstall {
         candidate: String,
@@ -28,6 +33,8 @@ enum Commands {
     },
     List {
         candidate: Option<String>,
+        #[arg(short, long)]
+        installed: bool
     },
     Default {
         candidate: String,
@@ -49,7 +56,6 @@ fn main() -> anyhow::Result<()> {
 
     let dir = dir::RsdkDir::new()?;
 
-    // Example command handling for 'version'
     match &cli.command {
         Commands::Attach {} => {
             let default_candidates = dir.all_defaults()?;
@@ -60,7 +66,7 @@ fn main() -> anyhow::Result<()> {
                 .filter(|p| !p.starts_with(dir.candidates()))
                 .collect();
 
-            // Append each default candidate's `bin` directory to PATH if it exists
+            // Append each default candidate's `bin` directory to PATH
             for default_version in default_candidates {
                 paths.push(default_version.bin());
                 shell::set_var(&default_version.home(), &default_version.path().to_string_lossy())?;
@@ -69,24 +75,24 @@ fn main() -> anyhow::Result<()> {
             let new_path = env::join_paths(paths).expect("Failed to join paths");
             shell::set_var("PATH", &new_path.to_string_lossy())?;
         }
-        Commands::Install { candidate, version } => {
-            let api = api::Api::new(&dir.cache());
+        Commands::Install { candidate, version, force, default } => {
+            let api = api::Api::new(&dir.cache(), *force);
             let version = match version {
                 None => api.get_default_version(candidate)?,
                 Some(v) => v.clone(),
             };
 
             let temp_dir = dir.temp();
-            // let temp_dir = tempfile::tempdir_in(dir.temp())?;
-            // let zipfile = tempdir.path().join("zipfile.zip");
             let work_dir = temp_dir.join("work");
 
             let zip_file = api.get_cached_file(candidate, &version)?;
             let cv = CandidateVersion::new(&dir,candidate, &version);
             debug!("file is {:?}", zip_file.to_string_lossy());
             cv.install_from_file(&zip_file, &work_dir, true)?;
-            cv.set_default()?;
-            cv.make_current()?;
+            if *default || ask_default(candidate, &version) {
+                cv.set_default()?;
+                cv.set_current()?;
+            }
             println!("Installed {candidate} {version}");
         }
         Commands::Uninstall { candidate, version } => {
@@ -94,28 +100,42 @@ fn main() -> anyhow::Result<()> {
             cv.uninstall()?;
             println!("Uninstalled {candidate} {version}");
         }
-        Commands::List { candidate } => {
-            let api = api::Api::new(&dir.cache());
-            match candidate {
-                Some(c) => {
-                    for v in api.get_candidate_versions(c)? {
-                        println!("{v}");
+        Commands::List { candidate, installed } => {
+            if !installed {
+                let api = api::Api::new(&dir.cache(), false);
+                match candidate {
+                    Some(c) => {
+                        for v in api.get_candidate_versions(c)? {
+                            println!("{v}");
+                        }
+                    }
+                    None => {
+                        for v in api.get_candidates()? {
+                            println!("{v}");
+                        }
                     }
                 }
-                None => {
-                    for v in api.get_candidates()? {
-                        println!("{v}");
-                    }
+            } else {
+                for cv in dir.all_versions()? {
+                    println!("{cv}");
                 }
             }
         }
         Commands::Default { candidate, version } => {
             let cv = CandidateVersion::new(&dir, candidate, version);
-            cv.set_default()?
+            if cv.is_installed() {
+                cv.set_default()?
+            } else {
+                eprintln!("{cv} is not installed")
+            }
         }
         Commands::Use { candidate, version } => {
             let cv = CandidateVersion::new(&dir, candidate, version);
-            cv.set_default()?
+            if cv.is_installed() {
+                cv.set_current()?;
+            } else {
+                eprintln!("{cv} is not installed")
+            }
         }
         Commands::Flush { } => {
             println!("Flushing cache");
@@ -124,4 +144,15 @@ fn main() -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+pub fn ask_default(candidate: &str, version: &str) -> bool {
+    print!("Do you want to make {candidate} {version} the default? (y/n): ");
+    io::stdout().flush().expect("Failed to flush stdout");
+
+    let mut input = String::new();
+    match io::stdin().read_line(&mut input) {
+        Ok(_) => matches!(input.trim().to_lowercase().as_str(), "y" | "yes"),
+        Err(_) => false,
+    }
 }

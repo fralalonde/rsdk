@@ -13,9 +13,6 @@ pub struct Cli {
     verbose: bool,
 
     #[arg(short, long)]
-    force: bool,
-
-    #[arg(short, long)]
     shell: Option<String>,
 
     #[arg(short, long)]
@@ -26,10 +23,6 @@ pub struct Cli {
 }
 
 pub static ARGS: OnceLock<Cli> = OnceLock::new();
-
-pub fn force() -> bool {
-    ARGS.get().unwrap().force
-}
 
 pub fn offline() -> bool {
     ARGS.get().unwrap().offline

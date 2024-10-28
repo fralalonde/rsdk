@@ -17,9 +17,9 @@ pub static PLATFORM: &str = "cygwin";
 pub static PLATFORM: &str = "linuxx64";
 
 impl Api {
-    pub fn new(cache_dir: &Path) -> Self {
+    pub fn new(cache_dir: &Path, force: bool) -> Self {
         Self {
-            client: CachedHttpClient::new(cache_dir, args::offline()),
+            client: CachedHttpClient::new(cache_dir, args::offline(), force),
             base_url: "https://api.sdkman.io/2".to_string(),
             platform: PLATFORM,
         }

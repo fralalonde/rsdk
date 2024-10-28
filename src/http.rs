@@ -6,22 +6,23 @@ use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use crate::{args};
 
 pub struct CachedHttpClient {
     cache_dir: PathBuf,
     offline: bool,
+    force: bool,
     client: Client,
 }
 
 impl CachedHttpClient {
-    pub fn new(cache_dir: &Path, offline: bool) -> Self {
+    pub fn new(cache_dir: &Path, offline: bool, force: bool) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
             .expect("Failed to build reqwest client");
         Self {
             cache_dir: cache_dir.to_path_buf(),
+            force,
             offline,
             client,
         }
@@ -40,7 +41,7 @@ impl CachedHttpClient {
         }
 
         // Force re-download if `use_force()` is true
-        if args::force() || !self.is_cache_valid(&cache_path, &meta_path)? {
+        if self.force || !self.is_cache_valid(&cache_path, &meta_path)? {
             self.download_to_file(url, &cache_path, &cache_path)?;
             self.update_metadata(&meta_path, url)?;
         }
@@ -50,7 +51,7 @@ impl CachedHttpClient {
     pub fn get_text(&self, url: &str) -> Result<String> {
         let (cache_path, meta_path) = self.get_cache_paths(url);
 
-        if args::force() || !self.is_cache_valid(&cache_path, &meta_path)? {
+        if self.force || !self.is_cache_valid(&cache_path, &meta_path)? {
             let content = self.download_text(url, &cache_path)?;
             self.update_metadata(&meta_path, url)?;
             return Ok(content);
