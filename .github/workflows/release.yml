@@ -12,31 +12,15 @@ jobs:
     steps:
       # Checkout the repository
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # Set up caching for Cargo downloads and PowerShell artifacts
-      - name: Cache Cargo registry
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-registry-
-
-      - name: Cache Cargo index and PowerShell
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/index
-            target/release/deps  # Only cache release dependencies
-          key: ${{ runner.os }}-cargo-powershell-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-build-
+      # Cache cargo registry
+      - name: use Rust cache
+        uses: Swatinem/rust-cache@v2
 
       # Install Rust
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           target: x86_64-pc-windows-msvc
@@ -64,7 +48,7 @@ jobs:
 
       # Upload only the ZIP archive as a binary artifact
       - name: Upload Release ZIP
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: rsdk-windows-${{ github.ref_name }}
           path: rsdk-windows-${{ github.ref_name }}.zip
