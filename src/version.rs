@@ -1,5 +1,5 @@
 use std::fs::{create_dir_all, File};
-use std::{env, fs, io};
+use std::{env, fs};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use anyhow::{bail, Context};
@@ -15,6 +15,8 @@ use flate2::bufread::GzDecoder;
 
 #[cfg(windows)]
 use zip::ZipArchive;
+#[cfg(windows)]
+use std::{io};
 
 pub struct CandidateVersion {
     rsdk: RsdkDir,
