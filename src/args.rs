@@ -20,9 +20,16 @@ pub struct Cli {
 
     #[arg(short, long)]
     offline: bool,
+
+    #[arg(long)]
+    insecure: bool,
 }
 
 pub static ARGS: OnceLock<Cli> = OnceLock::new();
+
+pub fn insecure() -> bool {
+    ARGS.get().unwrap().insecure
+}
 
 pub fn offline() -> bool {
     ARGS.get().unwrap().offline

@@ -71,7 +71,7 @@ impl RsdkDir {
                         let vv = v_entry?;
                         if vv.file_type()?.is_dir() {
                             if let Some(version) = vv.file_name().to_str() {
-                                let cv = CandidateVersion::new(&self, candidate, version);
+                                let cv = CandidateVersion::new(self, candidate, version);
                                 versions.push(cv);
                             }
                         }

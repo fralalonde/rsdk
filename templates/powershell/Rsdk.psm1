@@ -30,6 +30,8 @@ function Invoke-Rsdk {
     }
 }
 
+# initialize module
+Invoke-Rsdk attach
 Set-Alias -Name rsdk -Value Invoke-Rsdk -Scope Global
 
 # Example command to install an SDK via rsdk.exe
@@ -117,3 +119,7 @@ function Show-Rsdk {
     }
     Invoke-Rsdk -Command "list" -Args $args
 }
+
+# initialize module
+Invoke-Rsdk attach
+Set-Alias -Name rsdk -Value Invoke-Rsdk -Scope Global

@@ -1,3 +1,4 @@
+use std::env;
 use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::blocking::Client;
@@ -6,6 +7,7 @@ use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use crate::args;
 
 pub struct CachedHttpClient {
     cache_dir: PathBuf,
@@ -16,8 +18,18 @@ pub struct CachedHttpClient {
 
 impl CachedHttpClient {
     pub fn new(cache_dir: &Path, offline: bool, force: bool) -> Self {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(30))
+        let mut client = Client::builder()
+            .timeout(Duration::from_secs(30));
+
+        if let Some(proxy) = Self::read_proxy_from_env() {
+            client = client.proxy(proxy);
+        }
+
+        if args::insecure() {
+            client = client.danger_accept_invalid_certs(true)
+        }
+
+        let client = client
             .build()
             .expect("Failed to build reqwest client");
         Self {
@@ -142,6 +154,16 @@ impl CachedHttpClient {
         self.update_metadata(&meta_path, url)?;
 
         Ok(())
+    }
+
+    fn read_proxy_from_env() -> Option<reqwest::Proxy> {
+        if let Ok(http_proxy) = env::var("http_proxy") {
+            return reqwest::Proxy::http(&http_proxy).ok();
+        }
+        if let Ok(https_proxy) = env::var("https_proxy") {
+            return reqwest::Proxy::https(&https_proxy).ok();
+        }
+        None
     }
 
     fn extract_filename_from_disposition(content_disposition: &str) -> Option<&str> {
