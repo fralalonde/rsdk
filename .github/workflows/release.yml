@@ -32,7 +32,7 @@ jobs:
       # Prepare PowerShell module by processing templates
       - name: Generate PowerShell Module
         run: |
-          $SourceDirectory = "$(pwd)\build\windows"
+          $SourceDirectory = "$(pwd)\templates\powershell"
           $DestinationDirectory = "$(pwd)\target\powershell"
           $ExePath = "rsdk.exe"
           & "$SourceDirectory\Module-Template.ps1" -SourceDirectory $SourceDirectory -DestinationDirectory $DestinationDirectory -ExePath $ExePath
