@@ -4,7 +4,6 @@ use std::ffi::OsString;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use anyhow::{bail, Context};
-use flate2::bufread::GzDecoder;
 use log::{debug};
 use symlink::remove_symlink_dir;
 use crate::{shell};
@@ -12,6 +11,8 @@ use crate::dir::RsdkDir;
 
 #[cfg(unix)]
 use tar::Archive;
+#[cfg(unix)]
+use flate2::bufread::GzDecoder;
 
 #[cfg(windows)]
 use zip::ZipArchive;
