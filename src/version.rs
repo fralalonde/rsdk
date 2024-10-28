@@ -1,13 +1,20 @@
 use std::fs::{create_dir_all, File};
 use std::{env, fs, io};
 use std::ffi::OsString;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use anyhow::{bail, Context};
+use flate2::bufread::GzDecoder;
 use log::{debug};
 use symlink::remove_symlink_dir;
-use zip::ZipArchive;
 use crate::{shell};
 use crate::dir::RsdkDir;
+
+#[cfg(unix)]
+use tar::Archive;
+
+#[cfg(windows)]
+use zip::ZipArchive;
 
 pub struct CandidateVersion {
     rsdk: RsdkDir,
@@ -36,7 +43,6 @@ impl CandidateVersion {
         format!("{}_HOME", self.candidate.to_uppercase())
     }
 
-    // FIXME this can only be done from within a shell script
     pub fn make_current(&self) -> anyhow::Result<()> {
         let any_active = self.rsdk.candidate_path(&self.candidate);
         let path = env::var_os("PATH").unwrap_or(OsString::new());
@@ -51,32 +57,9 @@ impl CandidateVersion {
         Ok(())
     }
 
-    pub fn install_from_zip(&self, zipfile: &Path, work_dir: &Path, force: bool) -> anyhow::Result<()> {
-        debug!("opening {:?}", zipfile);
-        let f = File::open(zipfile).context("opening zip")?;
-        debug!("unzipping");
-        let mut archive = ZipArchive::new(f)?;
-        for i in 0..archive.len() {
-            let mut zip_entry = archive.by_index(i)?;
-            let outpath = work_dir.join(zip_entry.name());
-
-            // Create directories as needed
-            if zip_entry.is_dir() {
-                debug!("creating dir {:?}", outpath);
-                create_dir_all(&outpath)?;
-            } else {
-                if let Some(parent) = outpath.parent() {
-                    if !!parent.exists() {
-                        debug!("creating parent dir {:?}", parent);
-                        create_dir_all(parent)?;
-                    }
-                }
-                debug!("creating file {:?}", outpath);
-                let mut outfile = File::create(&outpath)?;
-                debug!("writing file {:?}", outpath);
-                io::copy(&mut zip_entry, &mut outfile)?;
-            }
-        }
+    pub fn install_from_file(&self, zipfile: &Path, work_dir: &Path, force: bool) -> anyhow::Result<()> {
+        let archive = File::open(zipfile).context("opening zip")?;
+        Self::extract(&archive, work_dir)?;
 
         // unzip complete, proceed to move to final dest
         let target_dir = &self.path();
@@ -105,8 +88,48 @@ impl CandidateVersion {
             }
         }
 
+        if let Some(parent) = target_dir.parent() {
+            create_dir_all(parent)?;
+        }
+
         debug!("renaming {:?} to {:?}", entry_path, target_dir);
         fs::rename(&entry_path, target_dir)?;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    fn extract(file: &File, work_dir: &Path) -> anyhow::Result<()> {
+        let decompressed = GzDecoder::new(BufReader::new(file));
+        let mut archive = Archive::new(decompressed);
+        archive.unpack(work_dir)?;
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    fn extract(file: &File, work_dir: &Path) -> anyhow::Result<()> {
+        debug!("unzipping");
+        let mut archive = ZipArchive::new(file)?;
+        for i in 0..archive.len() {
+            let mut zip_entry = archive.by_index(i)?;
+            let outpath = work_dir.join(zip_entry.name());
+
+            // Create directories as needed
+            if zip_entry.is_dir() {
+                debug!("creating dir {:?}", outpath);
+                create_dir_all(&outpath)?;
+            } else {
+                if let Some(parent) = outpath.parent() {
+                    if !!parent.exists() {
+                        debug!("creating parent dir {:?}", parent);
+                        create_dir_all(parent)?;
+                    }
+                }
+                debug!("creating file {:?}", outpath);
+                let mut outfile = File::create(&outpath)?;
+                debug!("writing file {:?}", outpath);
+                io::copy(&mut zip_entry, &mut outfile)?;
+            }
+        }
         Ok(())
     }
 

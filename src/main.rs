@@ -2,41 +2,18 @@
 mod api;
 mod error;
 mod dir;
-mod download;
 mod version;
 mod shell;
+mod http;
+mod args;
 
 use std::ffi::OsString;
 use std::{env, fs};
-use std::sync::OnceLock;
 use clap::{Parser, Subcommand};
 use env_logger;
+use log::debug;
+use crate::args::{Cli, ARGS};
 use crate::version::CandidateVersion;
-
-/// CLI Struct for command-line arguments
-#[derive(Parser, Clone)]
-#[command(name = "rsdk", version = "0.1", about = "Rust SDK Manager")]
-pub struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-
-    #[arg(short, long)]
-    verbose: bool,
-
-    #[arg(short, long)]
-    force: bool,
-
-    #[arg(short, long)]
-    shell: Option<String>,
-
-    #[arg(short, long)]
-    envout: Option<String>,
-
-    #[arg(short, long)]
-    offline: bool,
-}
-
-pub static ARGS: OnceLock<Cli> = OnceLock::new();
 
 /// Subcommands enum
 #[derive(Subcommand, Clone)]
@@ -66,8 +43,7 @@ enum Commands {
     },
 }
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let cli = Cli::parse();
@@ -98,17 +74,19 @@ async fn main() -> anyhow::Result<()> {
         Commands::Install { candidate, version } => {
             let api = api::Api::new(&dir.cache());
             let version = match version {
-                None => api.get_default_version(candidate).await?,
+                None => api.get_default_version(candidate)?,
                 Some(v) => v.clone(),
             };
 
-            let tempdir = tempfile::tempdir()?;
-            let zipfile = tempdir.path().join("zipfile.zip");
-            let work_dir = tempdir.path().join("work");
+            let temp_dir = dir.temp();
+            // let temp_dir = tempfile::tempdir_in(dir.temp())?;
+            // let zipfile = tempdir.path().join("zipfile.zip");
+            let work_dir = temp_dir.join("work");
 
-            api.get_file(candidate, &version, &zipfile).await?;
+            let zip_file = api.get_cached_file(candidate, &version)?;
             let cv = CandidateVersion::new(&dir,candidate, &version);
-            cv.install_from_zip(&zipfile, &work_dir, true)?;
+            debug!("file is {:?}", zip_file.to_string_lossy());
+            cv.install_from_file(&zip_file, &work_dir, true)?;
             cv.set_default()?;
             cv.make_current()?;
             println!("Installed {candidate} {version}");
@@ -122,12 +100,12 @@ async fn main() -> anyhow::Result<()> {
             let api = api::Api::new(&dir.cache());
             match candidate {
                 Some(c) => {
-                    for v in api.get_candidate_versions(c).await? {
+                    for v in api.get_candidate_versions(c)? {
                         println!("{v}");
                     }
                 }
                 None => {
-                    for v in api.get_candidates().await? {
+                    for v in api.get_candidates()? {
                         println!("{v}");
                     }
                 }

@@ -18,6 +18,9 @@ impl RsdkDir {
 
         let rsdk = RsdkDir { root: rsdk_dir.to_path_buf() };
         create_dir_all(rsdk.candidates())?;
+        create_dir_all(rsdk.cache())?;
+        create_dir_all(rsdk.temp())?;
+        fs::remove_dir_all(rsdk.temp())?;
         Ok(rsdk)
     }
 
@@ -62,6 +65,9 @@ impl RsdkDir {
 
     pub fn cache(&self) -> PathBuf {
         self.root.join("cache")
+    }
+    pub fn temp(&self) -> PathBuf {
+        self.root.join("temp")
     }
 
     pub fn candidate_path(&self, candidate: &str) -> PathBuf {

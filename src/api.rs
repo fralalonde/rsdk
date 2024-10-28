@@ -1,15 +1,13 @@
-use std::path::{Path};
+use std::path::{Path, PathBuf};
+use std::str;
 use anyhow::{Result};
-use reqwest::{Client, IntoUrl};
-use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache, HttpCacheOptions};
-use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
-use crate::ARGS;
-use crate::download::download_with_progress;
+use crate::{args, ARGS};
+use crate::http::CachedHttpClient;
 
 pub struct Api {
-    client: ClientWithMiddleware,
+    client: CachedHttpClient,
     base_url: String,
-    platform: String,
+    platform: &'static str,
 }
 
 enum Platform {
@@ -27,97 +25,118 @@ enum Arch {
     Aarch64,
 }
 
+#[cfg(all(target_os = "windows"))]
+pub static PLATFORM: &str = "cygwin";
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+pub static PLATFORM: &str = "linuxx64";
+
 impl Api {
-    pub fn new(cache_dir: &Path) -> Api {
-        let cache_manager = CACacheManager {
-            path: cache_dir.to_path_buf(),
-        };
-
-        let cache_mode = if ARGS.get().unwrap().offline {
-            // only use cache, fail if unavailable
-            CacheMode::OnlyIfCached
-        } else {
-            CacheMode::Default
-        };
-
-
-        let cache = HttpCache {
-            mode: cache_mode,
-            manager: cache_manager,
-            options: HttpCacheOptions::default(),
-        };
-
-        let caching_client = ClientBuilder::new(Client::new())
-            .with(Cache(cache))
-            .build();
-
-        Api {
-            client: caching_client,
+    pub fn new(cache_dir: &Path) -> Self {
+        Self {
+            client: CachedHttpClient::new(cache_dir, args::offline()),
             base_url: "https://api.sdkman.io/2".to_string(),
-            platform: "cygwin".to_string(),
+            platform: PLATFORM,
         }
     }
 
-    async fn get_text(&self, uri: impl IntoUrl) -> Result<String> {
-        let response = self.client.get(uri).send().await?;
-        Ok(response.text().await?)
+    pub fn get_text(&self, uri: &str) -> Result<String> {
+        let url = format!("{}{}", self.base_url, uri);
+        self.client.get_text(&url)
     }
 
-    // pub async fn get_api_version(&self) -> Result<String> {
+    // pub fn get_api_version(&self) -> Result<String> {
     //     let base_url = &self.base_url;
-    //     Ok(self.get_text(&format!("{base_url}/broker/download/sdkman/version/stable")).await?)
+    //     Ok(self.get_text(&format!("/broker/download/sdkman/version/stable"))?)
     // }
 
-    pub async fn get_candidates(&self) -> Result<Vec<String>> {
-        let base_url = &self.base_url;
-        Ok(self.get_text(&format!("{base_url}/candidates/all")).await?
+    pub fn get_candidates(&self) -> Result<Vec<String>> {
+        Ok(self.get_text("/candidates/all")?
             .split(",")
             .map(|v| v.to_string())
             .collect())
     }
 
-    pub async fn get_candidate_versions(&self, candidate: &str) -> Result<Vec<String>> {
-        let mut sepcount = 0;
-        let base_url = &self.base_url;
+    pub fn get_candidate_versions(&self, candidate: &str) -> Result<Vec<String>> {
         let platform = &self.platform;
-        let versions = self.get_text(&format!("{base_url}/candidates/{candidate}/{platform}/versions/list")).await?;
-        let mut mmuh: Vec<Vec<&str>> = versions
-            .lines()
-            .filter(|l| {
-                if l.starts_with("===") {
-                    sepcount += 1;
-                    false
-                } else if sepcount > 1 && sepcount < 3 {
-                    true
-                } else {
-                    false
-                }
-            })
-            .map(|l| l.split(" ")
-                .filter(|x| !x.trim().is_empty())
-                .collect::<Vec<_>>())
-            .filter(|v| !v.is_empty())
-            .collect();
+        let versions = self.get_text(&format!("/candidates/{candidate}/{platform}/versions/list?installed="))?;
 
-        let mut vaches = Vec::new();
-        'zz: loop {
-            for v in &mut mmuh {
-                if v.is_empty() { break 'zz; }
-                vaches.push(v.remove(0).to_string());
+        let versions = match candidate {
+            "java" => decode_java_versions(&versions),
+            _ => decode_versions(&versions)
+        };
+        Ok(versions)
+    }
+
+    pub fn get_default_version(&self, candidate: &str) -> Result<String> {
+        self.get_text(&format!("/candidates/default/{candidate}"))
+    }
+
+    pub fn get_cached_file(&self, candidate: &str, version: &str) -> Result<PathBuf> {
+        let platform = &self.platform;
+        let url = format!("{}/broker/download/{candidate}/{version}/{platform}", self.base_url);
+        self.client.get_cached_file(&url)
+    }
+}
+
+fn decode_versions(versions: &str) -> Vec<String> {
+    let mut sepcount = 0;
+    let mut mmuh: Vec<Vec<&str>> = versions
+        .lines()
+        .filter(|l| {
+            if l.starts_with("===") {
+                sepcount += 1;
+                false
+            } else if sepcount > 1 && sepcount < 3 {
+                true
+            } else {
+                false
             }
+        })
+        .map(|l| l.split(" ")
+            .filter(|x| !x.trim().is_empty())
+            .collect::<Vec<_>>())
+        .filter(|v| !v.is_empty())
+        .collect();
+
+    let mut vaches = Vec::new();
+    'zz: loop {
+        for v in &mut mmuh {
+            if v.is_empty() { break 'zz; }
+            vaches.push(v.remove(0).to_string());
         }
-        Ok(vaches)
     }
+    vaches
+}
 
-    pub async fn get_default_version(&self, candidate: &str) -> Result<String> {
-        let base_url = &self.base_url;
-        Ok(self.get_text(&format!("{base_url}/candidates/default/{candidate}")).await?)
-    }
+fn decode_java_versions(versions: &str) -> Vec<String> {
+    let mut dash_lines = 0;
+    let mut eq_lines = 0;
 
-    pub async fn get_file(&self, candidate: &str, version: &str, file: &Path) -> Result<()> {
-        let base_url = &self.base_url;
-        let platform = &self.platform;
-        let url = format!("{base_url}/broker/download/{candidate}/{version}/{platform}");
-        Ok(download_with_progress(&url, file, &self.client).await?)
+    let mut mmuh: Vec<Vec<&str>> = versions
+        .lines()
+        .filter(|l| {
+            if l.starts_with("---") {
+                dash_lines += 1;
+                false
+            } else if l.starts_with("===") {
+                eq_lines += 1;
+                false
+            } else if dash_lines == 1 && eq_lines < 3 {
+                true
+            } else {
+                false
+            }
+        })
+        .map(|l| l.split("|")
+            .map(|x| x.trim())
+            .collect::<Vec<_>>())
+        .filter(|v| !v.is_empty())
+        .collect();
+
+    let mut vaches = Vec::new();
+    for v in &mut mmuh {
+        vaches.push(v[5].to_string());
     }
+    vaches
 }
