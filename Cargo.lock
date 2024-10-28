@@ -1279,7 +1279,6 @@ dependencies = [
  "reqwest",
  "symlink",
  "tar",
- "tempfile",
  "zip",
 ]
 

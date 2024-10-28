@@ -36,7 +36,7 @@ impl RsdkDir {
         let linked = fs::read_link(def)?;
         Ok(linked.as_path().iter().last()
             .and_then(|version| version.to_str().map(|version| version.to_owned()))
-            .map(|version| CandidateVersion::new(&self, candidate, &version)))
+            .map(|version| CandidateVersion::new(self, candidate, &version)))
     }
 
     pub fn all_defaults(&self) -> anyhow::Result<Vec<CandidateVersion>> {

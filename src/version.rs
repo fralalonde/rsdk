@@ -1,6 +1,5 @@
 use std::fs::{create_dir_all, File};
-use std::{env, fs, io};
-use std::ffi::OsString;
+use std::{env, fs};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use anyhow::{bail, Context};
@@ -46,7 +45,7 @@ impl CandidateVersion {
 
     pub fn make_current(&self) -> anyhow::Result<()> {
         let any_active = self.rsdk.candidate_path(&self.candidate);
-        let path = env::var_os("PATH").unwrap_or(OsString::new());
+        let path = env::var_os("PATH").unwrap_or_default();
         let mut paths: Vec<_> = env::split_paths(&path)
             .filter(|p| !p.starts_with(&any_active))
             .collect();
@@ -83,7 +82,7 @@ impl CandidateVersion {
         if target_dir.exists() {
             if force {
                 debug!("removing previous {:?}", target_dir);
-                fs::remove_dir_all(&target_dir)?;
+                fs::remove_dir_all(target_dir)?;
             } else {
                 bail!(format!("{:?} already exists", target_dir));
             }
@@ -151,7 +150,7 @@ impl CandidateVersion {
             remove_symlink_dir(&default_symlink_path)?;
         }
         debug!("symlinking {:?} to {:?}", self.path(), default_symlink_path);
-        Ok(symlink::symlink_dir(&self.path(), default_symlink_path)?)
+        Ok(symlink::symlink_dir(self.path(), default_symlink_path)?)
     }
 
     // pub fn is_default(&self) -> bool {

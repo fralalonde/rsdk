@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::str;
 use anyhow::{Result};
-use crate::{args, ARGS};
+use crate::{args};
 use crate::http::CachedHttpClient;
 
 pub struct Api {
@@ -10,22 +10,7 @@ pub struct Api {
     platform: &'static str,
 }
 
-enum Platform {
-    Cygwin,
-    Sunos,
-    Freebsd,
-    Mac,
-    Linux,
-    Windows,
-    Msys,
-}
-
-enum Arch {
-    X64,
-    Aarch64,
-}
-
-#[cfg(all(target_os = "windows"))]
+#[cfg(target_os = "windows")]
 pub static PLATFORM: &str = "cygwin";
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
@@ -87,10 +72,8 @@ fn decode_versions(versions: &str) -> Vec<String> {
             if l.starts_with("===") {
                 sepcount += 1;
                 false
-            } else if sepcount > 1 && sepcount < 3 {
-                true
             } else {
-                false
+                sepcount > 1 && sepcount < 3
             }
         })
         .map(|l| l.split(" ")
@@ -122,10 +105,8 @@ fn decode_java_versions(versions: &str) -> Vec<String> {
             } else if l.starts_with("===") {
                 eq_lines += 1;
                 false
-            } else if dash_lines == 1 && eq_lines < 3 {
-                true
-            } else {
-                false
+            } else  {
+                dash_lines == 1 && eq_lines < 3
             }
         })
         .map(|l| l.split("|")

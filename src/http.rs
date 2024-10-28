@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
-use md5;
 use reqwest::blocking::Client;
 use reqwest::header;
 use std::fs::{self, File};

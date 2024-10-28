@@ -8,12 +8,9 @@ pub fn set_var(name: &str, value: &str) -> io::Result<()> {
     // Get shell and envout settings from ARGS
     if let Some(shell) = args::shell() {
         if let Some(envout) = args::envout() {
-            // Open the envout file for appending (without truncating existing content)
             let mut file = OpenOptions::new()
-                .write(true)
-                .append(true) // Use append mode to add new lines without overwriting
-                .open(&envout)
-                .expect(&format!("Failed to create envout file {envout}"));
+                .append(true)
+                .open(&envout)?;
 
             // Emit shell-specific environment variable instructions
             match shell.as_str() {

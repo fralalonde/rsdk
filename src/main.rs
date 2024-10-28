@@ -7,10 +7,8 @@ mod shell;
 mod http;
 mod args;
 
-use std::ffi::OsString;
 use std::{env, fs};
 use clap::{Parser, Subcommand};
-use env_logger;
 use log::debug;
 use crate::args::{Cli, ARGS};
 use crate::version::CandidateVersion;
@@ -56,10 +54,10 @@ fn main() -> anyhow::Result<()> {
         Commands::Attach {} => {
             let default_candidates = dir.all_defaults()?;
 
-            let path = env::var_os("PATH").unwrap_or_else(OsString::new);
+            let path = env::var_os("PATH").unwrap_or_default();
             let mut paths: Vec<_> = env::split_paths(&path)
                 // cleanup any hardwired candidate from PATH (how would it get there anyway)
-                .filter(|p| !p.starts_with(&dir.candidates()))
+                .filter(|p| !p.starts_with(dir.candidates()))
                 .collect();
 
             // Append each default candidate's `bin` directory to PATH if it exists
@@ -92,7 +90,7 @@ fn main() -> anyhow::Result<()> {
             println!("Installed {candidate} {version}");
         }
         Commands::Uninstall { candidate, version } => {
-            let cv = CandidateVersion::new(&dir,candidate, &version);
+            let cv = CandidateVersion::new(&dir,candidate, version);
             cv.uninstall()?;
             println!("Uninstalled {candidate} {version}");
         }
