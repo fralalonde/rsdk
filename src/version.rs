@@ -22,8 +22,8 @@ use std::{io};
 
 pub struct CandidateVersion {
     rsdk: RsdkDir,
-    candidate: String,
-    version: String,
+    pub candidate: String,
+    pub version: String,
 }
 
 impl Display for CandidateVersion {

@@ -117,7 +117,13 @@ fn main() -> anyhow::Result<()> {
                 }
             } else {
                 for cv in dir.all_versions()? {
-                    println!("{cv}");
+                    if let Some(candidate) = candidate {
+                        if cv.candidate.eq(candidate) {
+                            println!("{cv}");
+                        }
+                    } else {
+                        println!("{cv}");
+                    }
                 }
             }
         }
