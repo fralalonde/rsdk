@@ -35,7 +35,7 @@ jobs:
           $SourceDirectory = "$(pwd)\templates\powershell"
           $DestinationDirectory = "$(pwd)\target\powershell"
           $ExePath = "rsdk.exe"
-          & "$SourceDirectory\Module-Template.ps1" -SourceDirectory $SourceDirectory -DestinationDirectory $DestinationDirectory -ExePath $ExePath
+          & build\windows\Module-Template.ps1 -SourceDirectory $SourceDirectory -DestinationDirectory $DestinationDirectory -ExePath $ExePath
         shell: pwsh
 
       # Package only the binary and auxiliary files into a ZIP
