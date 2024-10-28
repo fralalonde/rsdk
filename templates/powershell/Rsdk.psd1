@@ -5,7 +5,7 @@
     Description = 'Rsdk JVM tool manager'
     ModuleVersion = "1.0.0"
     PowerShellVersion = "5.1"
-    FunctionsToExport = @('Invoke-RsdkCommand', 'Rsdk-Install', 'Rsdk-Uninstall', 'Rsdk-List', 'Rsdk-Use', 'Rsdk-Default', 'Rsdk-Flush')
+    FunctionsToExport = @('Invoke-Rsdk', 'Install-Rsdk', 'Uninstall-Rsdk', 'List-Rsdk', 'Select-Rsdk', 'Reset-Rsdk')
     CmdletsToExport = @()
     AliasesToExport = @()
     RootModule = 'Rsdk.psm1'

@@ -14,7 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Set up caching for Cargo downloads and powershell artifacts
+      # Set up caching for Cargo downloads and PowerShell artifacts
       - name: Cache Cargo registry
         uses: actions/cache@v3
         with:
@@ -24,7 +24,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-registry-
 
-      - name: Cache Cargo index and powershell
+      - name: Cache Cargo index and PowerShell
         uses: actions/cache@v3
         with:
           path: |
@@ -43,14 +43,23 @@ jobs:
 
       # Build the project in release mode
       - name: Build the project
-        run: cargo powershell --release --target x86_64-pc-windows-msvc
+        run: cargo build --release --target x86_64-pc-windows-msvc
+
+      # Prepare PowerShell module by processing templates
+      - name: Generate PowerShell Module
+        run: |
+          $SourceDirectory = "$(pwd)\build\windows"
+          $DestinationDirectory = "$(pwd)\target\powershell"
+          $ExePath = "rsdk.exe"
+          & "$SourceDirectory\Module-Template.ps1" -SourceDirectory $SourceDirectory -DestinationDirectory $DestinationDirectory -ExePath $ExePath
+        shell: pwsh
 
       # Package only the binary and auxiliary files into a ZIP
       - name: Create ZIP package
         run: |
           $version = '${{ github.ref_name }}'
           $output = "rsdk-windows-$version.zip"
-          Compress-Archive -Path "target/x86_64-pc-windows-msvc/release/rsdk.exe", "powershell/*" -DestinationPath $output
+          Compress-Archive -Path "target/x86_64-pc-windows-msvc/release/rsdk.exe", "target/powershell/*" -DestinationPath $output
         shell: pwsh
 
       # Upload only the ZIP archive as a binary artifact

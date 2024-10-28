@@ -1,3 +1,5 @@
+# install module locally
+
 param (
     [Parameter(Mandatory = $true)]
     [string]$SourceDirectory,   # Path to the directory containing template files (e.g., .psd1, .psm1)
@@ -23,22 +25,8 @@ if (Test-Path -Path $destinationPath) {
 }
 New-Item -ItemType Directory -Path $destinationPath -Force
 
-# Copy the PowerShell module files except rsdk.psm1 from the source to the destination
-Write-Host "Copying module files from $SourceDirectory to $destinationPath"
-Copy-Item -Path "$SourceDirectory\*" -Destination $destinationPath -Recurse -Exclude "Rsdk.psm1"
-
-
-$rsdkBinarySource = [System.IO.Path]::GetFullPath($ExePath)
-
-# Generate rsdk.psm1 from template with the correct path to rsdk.exe
-$psm1TemplatePath = Join-Path -Path $SourceDirectory -ChildPath "Rsdk.psm1"
-$psm1DestinationPath = Join-Path -Path $destinationPath -ChildPath "Rsdk.psm1"
-$rsdkPathEscaped = $rsdkBinarySource # -replace '\\', '\\\\'  # Escape backslashes for PowerShell
-
-Write-Host "Generating rsdk.psm1 with rsdk.exe path $rsdkPathEscaped"
-$templateContent = Get-Content -Path $psm1TemplatePath -Raw
-$updatedContent = $templateContent -replace 'PUT_RSDK_PATH_HERE', $rsdkPathEscaped
-Set-Content -Path $psm1DestinationPath -Value $updatedContent
+# copy module templates to default windows module dir and fill them out
+& "$PSScriptRoot\Module-Template.ps1" -SourceDirectory $SourceDirectory -DestinationDirectory $destinationPath -ExePath $ExePath
 
 Write-Host "Module installed in $destinationPath"
 

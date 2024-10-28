@@ -1,4 +1,4 @@
-function Invoke-RsdkCommand {
+function Invoke-Rsdk {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -27,7 +27,7 @@ function Invoke-RsdkCommand {
 }
 
 # Example command to install an SDK via rsdk.exe
-function Rsdk-Install {
+function Install-Rsdk {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -36,19 +36,15 @@ function Rsdk-Install {
         [string]$Version
     )
 
-    try {
-        $args = @($Candidate)
-        if ($Version) {
-            $args += $Version
-        }
-        Invoke-RsdkCommand -Command "install" -Args $args
-    } catch {
-        Write-Error "Failed to install $SDK version $Version. Error: $_"
+    $args = @($Candidate)
+    if ($Version) {
+        $args += $Version
     }
+    Invoke-Rsdk -Command "install" -Args $args
 }
 
 # Command to uninstall an SDK via rsdk.exe
-function Rsdk-Uninstall {
+function Uninstall-Rsdk {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -57,79 +53,54 @@ function Rsdk-Uninstall {
         [string]$Version
     )
 
-    try {
-        $args = @($Candidate)
-        if ($Version) {
-            $args += $Version
-        }
-        Invoke-RsdkCommand -Command "uninstall" -Args $args
-    } catch {
-        Write-Error "Failed to uninstall $SDK. Error: $_"
+    $args = @($Candidate)
+    if ($Version) {
+        $args += $Version
     }
-}
-
-# Command to set a default SDK via rsdk.exe
-function Rsdk-Default {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$Candidate,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Version
-    )
-
-    try {
-        Invoke-RsdkCommand -Command "default" -Args @($Candidate, $Version)
-    } catch {
-        Write-Error "Failed to set default SDK $SDK to version $Version. Error: $_"
-    }
+    Invoke-Rsdk -Command "uninstall" -Args $args
 }
 
 # Command to use a specific SDK version via rsdk.exe
-function Rsdk-Use {
+function Select-Rsdk {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Candidate,
 
         [Parameter(Mandatory = $true)]
-        [string]$Version
+        [string]$Version,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$Default
     )
 
-    try {
-        Invoke-RsdkCommand -Command "use" -Args @($SDK, $Version)
-    } catch {
-        Write-Error "Failed to set candidate $Candidate to use version $Version. Error: $_"
+    if ($Default) {
+        Invoke-Rsdk -Command "default" -Args @($Candidate, $Version)
+        Write-Host "Set $Candidate version $Version as the default."
+    } else {
+        Invoke-Rsdk -Command "use" -Args @($Candidate, $Version)
+        Write-Host "Using $Candidate version $Version for the current session."
     }
 }
 
 # Command to flush the SDK cache via rsdk.exe
-function Rsdk-Flush {
+function Reset-Rsdk {
     [CmdletBinding()]
     param ()
 
-    try {
-        Invoke-RsdkCommand -Command "flush" -Args @()
-    } catch {
-        Write-Error "Failed to flush cache. Error: $_"
-    }
+    Invoke-Rsdk -Command "flush" -Args @()
 }
 
 # Command to list available SDKs via rsdk.exe
-function Rsdk-List {
+function List-Rsdk {
     [CmdletBinding()]
     param (
         [string]$Candidate
     )
 
-    try {
-        $args = @()
-        if ($Candidate) {
-            $args += $Candidate
-        }
-        Invoke-RsdkCommand -Command "list" -Args $args
-    } catch {
-        Write-Error "Failed to list candidates. Error: $_"
+    $args = @()
+    if ($Candidate) {
+        $args += $Candidate
     }
+    Invoke-Rsdk -Command "list" -Args $args
 }
