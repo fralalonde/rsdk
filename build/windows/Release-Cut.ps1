@@ -6,8 +6,6 @@ param (
 # Define file paths
 $PsModuleTemplatePath = "./templates/build/rsdk.psm1"
 $PsManifestTemplatePath = "./templates/build/rsdk.psd1"
-$PsModulePath = "./powershell/rsdk.psm1"
-$PsManifestPath = "./powershell/rsdk.psd1"
 
 # Ensure the version tag is unique
 Write-Host "Checking if version tag v$Version already exists..."
@@ -15,21 +13,6 @@ if (git tag --list "v$Version" | Select-String -Pattern "^v$Version$") {
     Write-Error "Version tag v$Version already exists. Please choose a unique version."
     exit 1
 }
-
-# Step 1: Update PowerShell files from templates
-Write-Host "Updating PowerShell module manifest (.psd1) and module script (.psm1) with new version $Version..."
-
-# Update rsdk.psd1
-$psManifestContent = Get-Content -Path $PsManifestTemplatePath -Raw
-$updatedPsManifestContent = $psManifestContent -replace 'PUT_YOUR_VERSION_HERE', $Version
-Set-Content -Path $PsManifestPath -Value $updatedPsManifestContent
-
-# Update rsdk.psm1 to use `rsdk.exe` directly, assuming it's in the PATH (for Scoop usage)
-$psModuleContent = Get-Content -Path $PsModuleTemplatePath -Raw
-$updatedPsModuleContent = $psModuleContent -replace 'PUT_RSDK_PATH_HERE', 'rsdk.exe'
-Set-Content -Path $PsModulePath -Value $updatedPsModuleContent
-
-Write-Host "PowerShell files updated."
 
 # Step 2: Build `rsdk.exe` and run tests
 Write-Host "Building rsdk.exe..."

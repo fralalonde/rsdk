@@ -6,8 +6,8 @@ param (
 )
 
 # Define file paths
-$ScoopTemplatePath = "./templates/publish/rsdk.json"
-$ScoopManifestPath = "./scoop/rsdk.json"
+$ScoopTemplatePath = "./templates/scoop/rsdk.json"
+$ScoopManifestPath = "./rsdk.json"
 $GitHubRepo = "fralalonde/rsdk"
 $artifactName = "rsdk-windows-$Version.zip"
 
