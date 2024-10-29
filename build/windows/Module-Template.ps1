@@ -12,6 +12,11 @@ param (
 )
 
 # Copy all module template files from the source to the destination, excluding Rsdk.psm1
+# Ensure the destination path and any parent directories exist
+if (-not (Test-Path -Path $destinationPath)) {
+    Write-Host "Creating directory $destinationPath and its parent directories"
+    New-Item -ItemType Directory -Path $destinationPath -Force
+}
 Write-Host "Copying module template files from $SourceDirectory to $destinationPath"
 Copy-Item -Path "$SourceDirectory\*" -Destination $destinationPath -Recurse -Exclude "Rsdk.psm1"
 
