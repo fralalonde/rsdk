@@ -1,10 +1,18 @@
 function Invoke-Rsdk {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
+        [Parameter(
+            Mandatory=$True,
+            Position = 0
+        )]
         [string]$Command,
+
+        [Parameter(
+            Mandatory=$False,
+            ValueFromRemainingArguments=$true,
+            Position = 1
+        )][string[]]
         [string[]]$Args
-#         [string[]]$Flags
     )
 
     # Find the path to rsdk.exe dynamically
@@ -14,25 +22,30 @@ function Invoke-Rsdk {
     $tempFilePath = $tempFile.FullName
 
     # Build the argument list, appending --shell "powershell"
-    $argumentList = @("--shell", "powershell", "--envout", $tempFilePath) + @($Command) + $Args
+    $argumentList = @("--shell", "powershell", "--envout", $tempFilePath) + @($Command)
+
+    # Only add $Args if it has non-empty content
+    if ($Args -and $Args.Length -gt 0) {
+        $argumentList += ($Args)
+    }
 
     # Run rsdk.exe, capturing output live (tee-like behavior)
-    write-host "$rsdkPath $argumentList"
+    # write-host "$rsdkPath $argumentList"
     & $rsdkPath $argumentList
 
     # Parse the output for environment variable changes and apply them
     if (Test-Path $tempFilePath) {
         $commands = Get-Content -Path $tempFilePath -Raw
-        write-host "envout contains $commands"
-        Invoke-Expression $commands
-    } else {
-        write-host "envout is empty"
+        if (-not [string]::IsNullOrWhiteSpace($commands)) {
+            # write-host "envout contains $commands"
+            Invoke-Expression $commands
+        }
     }
 }
 
 # initialize module
-Invoke-Rsdk attach
 Set-Alias -Name rsdk -Value Invoke-Rsdk -Scope Global
+Invoke-Rsdk attach
 
 # Example command to install an SDK via rsdk.exe
 function Install-Rsdk {
@@ -119,7 +132,3 @@ function Show-Rsdk {
     }
     Invoke-Rsdk -Command "list" -Args $args
 }
-
-# initialize module
-Invoke-Rsdk attach
-Set-Alias -Name rsdk -Value Invoke-Rsdk -Scope Global

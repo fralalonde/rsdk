@@ -11,26 +11,31 @@ param (
 )
 
 # Get the PowerShell module path for the current user
-$targetModulePath = Join-Path -Path $HOME -ChildPath "Documents\PowerShell\Modules"
+$modulePath = Join-Path -Path $HOME -ChildPath "Documents\PowerShell\Modules"
+
+# Write-Host "Installing module in $modulePath"
 
 # Determine the final module installation path
 if (-not $ModuleName) {
     # If ModuleName is not specified, assume the directory name is the module name
     $ModuleName = (Get-Item -Path $SourceDirectory).BaseName
 }
-$destinationPath = Join-Path -Path $targetModulePath -ChildPath $ModuleName
+$destinationPath = Join-Path -Path $modulePath -ChildPath $ModuleName
+
+# Write-Host "Copying files to in $destinationPath"
 
 if (Test-Path -Path $destinationPath) {
     Remove-Item -Recurse -Force -Path $destinationPath
 }
-New-Item -ItemType Directory -Path $destinationPath -Force
+# suppress useless command output, FML
+New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
 
 # copy module templates to default windows module dir and fill them out
-& "$PSScriptRoot\Module-Template.ps1" -SourceDirectory $SourceDirectory -DestinationDirectory $destinationPath -ExePath $ExePath
+& ".\build\windows\Module-Template.ps1" -SourceDir $SourceDirectory -DestinationDir $destinationPath -ExePath $ExePath
 
 Write-Host "Module installed in $destinationPath"
 
-Remove-Module -Name $ModuleName -ErrorAction SilentlyContinue
+# Remove-Module -Name $ModuleName -ErrorAction SilentlyContinue
 Import-Module $ModuleName
 
-Write-Host "Module $ModuleName imported"
+Write-Host "Remove-Module -Name $ModuleName to remove previous version"

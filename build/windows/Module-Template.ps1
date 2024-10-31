@@ -28,9 +28,7 @@ $psm1TemplatePath = Join-Path -Path $SourceDir -ChildPath "Rsdk.psm1"
 $psm1DestinationPath = Join-Path -Path $DestinationDir -ChildPath "Rsdk.psm1"
 $rsdkPathEscaped = $rsdkBinarySource
 
-Write-Host "Generating rsdk.psm1 with rsdk.exe path $rsdkPathEscaped"
+# Write-Host "Generating rsdk.psm1 with rsdk.exe path $rsdkPathEscaped"
 $templateContent = Get-Content -Path $psm1TemplatePath -Raw
 $updatedContent = $templateContent -replace 'PUT_RSDK_PATH_HERE', $rsdkPathEscaped
 Set-Content -Path $psm1DestinationPath -Value $updatedContent
-
-Write-Host "Templates successfully copied and configured in $DestinationDir"

@@ -33,19 +33,13 @@ jobs:
           & build\windows\Module-Template.ps1 -SourceDir $Source -DestinationDir $Destination -ExePath $ExePath
         shell: pwsh
 
-      - name: Create ZIP package for Windows
-        run: |
-          $version = '${{ github.ref_name }}'
-          $arch = "x86_64"
-          $output = "rsdk-windows-$version-$arch.zip"
-          Compress-Archive -Path "target/x86_64-pc-windows-msvc/release/rsdk.exe", "target/powershell" -DestinationPath $output -Force
-        shell: pwsh
-
-      - name: Upload Windows ZIP
+      - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rsdk-windows-${{ github.ref_name }}-x86_64
-          path: rsdk-windows-${{ github.ref_name }}-x86_64.zip
+          path: |
+            $(pwd)\target\release\rsdk.exe
+            $(pwd)\target\powershell\*
 
   debian-build:
     runs-on: ubuntu-latest
@@ -66,16 +60,17 @@ jobs:
       - name: Build the project
         run: cargo build --release --target x86_64-unknown-linux-gnu
 
-      - name: Create tar.gz package for Debian
-        run: |
-          version=${GITHUB_REF_NAME}
-          arch=$(uname -m)
-          output="rsdk-debian-${version}-${arch}.tar.gz"
-          tar -czvf $output -C target/x86_64-unknown-linux-gnu/release rsdk
-        shell: bash
+      - name: Generate Bash Plugin
+        run: bash ./build/unix/generate-plugin.sh $(pwd)\templates\bash $(pwd)\target\bash $(pwd)\target\release\rsdk
 
-      - name: Upload Debian tar.gz
+      - name: Generate Bash Plugin Script
+        run: bash ./build/unix/generate-plugin.fish $(pwd)\templates\fish $(pwd)\target\release\rsdk
+
+      - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rsdk-debian-${{ github.ref_name }}-x86_64
-          path: rsdk-debian-${{ github.ref_name }}-x86_64.tar.gz
+          name: rsdk-windows-${{ github.ref_name }}-x86_64
+          path: |
+            $(pwd)\target\release\rsdk
+            $(pwd)\target\bash\*
+            $(pwd)\target\fish\*
