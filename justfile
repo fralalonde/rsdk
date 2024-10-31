@@ -12,3 +12,11 @@ install-module release="false":
         rsdk_path="target/debug/rsdk.exe"; \
     fi; \
     pwsh ./build/windows/Module-Install.ps1 -SourceDirectory "./templates/powershell" -ExePath "$rsdk_path"
+
+install-fish release="false":
+    if [[ "{{release}}" == "true" ]]; then \
+        rsdk_path="target/release/rsdk"; \
+    else \
+        rsdk_path="target/debug/rsdk"; \
+    fi; \
+    fish ./build/fish/install.fish templates/fish/rsdk.fish $rsdk_path

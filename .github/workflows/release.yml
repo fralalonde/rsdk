@@ -27,8 +27,8 @@ jobs:
 
       - name: Generate PowerShell Module
         run: |
-          $Source = "$(pwd)\templates\powershell"
-          $Destination = "$(pwd)\target\powershell"
+          $Source = "templates\powershell"
+          $Destination = "target\powershell"
           $ExePath = "rsdk.exe"
           & build\windows\Module-Template.ps1 -SourceDir $Source -DestinationDir $Destination -ExePath $ExePath
         shell: pwsh
@@ -38,8 +38,8 @@ jobs:
         with:
           name: rsdk-windows-${{ github.ref_name }}-x86_64
           path: |
-            $(pwd)\target\release\rsdk.exe
-            $(pwd)\target\powershell\*
+            target\release\rsdk.exe
+            target\powershell\*
 
   debian-build:
     runs-on: ubuntu-latest
@@ -61,16 +61,16 @@ jobs:
         run: cargo build --release --target x86_64-unknown-linux-gnu
 
       - name: Generate Bash Plugin
-        run: bash ./build/unix/generate-plugin.sh $(pwd)\templates\bash $(pwd)\target\bash $(pwd)\target\release\rsdk
+        run: bash ./build/unix/generate-plugin.sh templates/bash target/bash /target/release/rsdk
 
       - name: Generate Bash Plugin Script
-        run: bash ./build/unix/generate-plugin.fish $(pwd)\templates\fish $(pwd)\target\release\rsdk
+        run: bash ./build/unix/generate-plugin.fish templates/fish target/fish target/release/rsdk
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rsdk-windows-${{ github.ref_name }}-x86_64
           path: |
-            $(pwd)\target\release\rsdk
-            $(pwd)\target\bash\*
-            $(pwd)\target\fish\*
+            target/release/rsdk
+            target/bash/*
+            target/fish/*

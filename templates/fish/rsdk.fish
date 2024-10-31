@@ -4,7 +4,7 @@
 set rsdkPath "PUT_RSDK_PATH_HERE"
 
 # Function to invoke rsdk and capture environment changes
-function invoke_rsdk
+function rsdk
     set command $argv[1]
     set args $argv[2..-1]
 
@@ -30,19 +30,4 @@ function invoke_rsdk
 
     # Clean up
     rm -f $temp_file
-end
-
-# Check if the script is called with `init`
-if test "$argv[1]" = "init"
-    # Initialize the module
-    invoke_rsdk attach
-
-    # Alias `rsdk` to `invoke_rsdk` for global use
-    function rsdk
-        invoke_rsdk $argv
-    end
-    echo "rsdk initialized and alias set for global use."
-else
-    # Otherwise, just call invoke_rsdk with the provided command and arguments
-    invoke_rsdk $argv
 end
