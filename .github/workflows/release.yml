@@ -37,7 +37,7 @@ jobs:
         with:
           name: rsdk-windows-${{ github.ref_name }}-x86_64
           path: |
-            target\**\*.exe
+            target\**\rsdk.exe
             target\**\*.psd1
             target\**\*.psm1
 
@@ -69,8 +69,8 @@ jobs:
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rsdk-windows-${{ github.ref_name }}-x86_64
+          name: rsdk-linux-${{ github.ref_name }}-x86_64
           path: |
-            target/**/rsdk
+            target/x86_64-unknown-linux-gnu/release/rsdk
             target/**/*.fish
             target/**/*.bash
