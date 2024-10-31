@@ -30,6 +30,8 @@ if (Test-Path -Path $destinationPath) {
 # suppress useless command output, FML
 New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
 
+$ExePath = $rsdkBinarySource = [System.IO.Path]::GetFullPath($ExePath)
+
 # copy module templates to default windows module dir and fill them out
 & ".\build\windows\Module-Template.ps1" -SourceDir $SourceDirectory -DestinationDir $destinationPath -ExePath $ExePath
 
