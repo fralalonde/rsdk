@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "description": "A tool for managing rsdk modules.",
+  "description": "A native manager for command-line JVM tools.",
   "homepage": "https://your-rsdk-repo-url",
   "license": "MIT",
   "architecture": {

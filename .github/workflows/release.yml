@@ -1,4 +1,4 @@
-name: Build and Release for Windows and Debian
+name: Build and Release for Windows, Debian, and macOS
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   windows-build:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - name: Checkout code
@@ -46,7 +46,7 @@ jobs:
           path: target\dist
 
   debian-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout code
@@ -67,15 +67,48 @@ jobs:
       - name: Generate Bash Plugin
         run: bash build/unix/generate-plugin.sh templates/bash target/dist/bash rsdk
 
-      - name: Generate Bash Plugin Script
+      - name: Generate Fish Plugin
         run: bash build/unix/generate-plugin.sh templates/fish target/dist/fish rsdk
 
       - name: Move rsdk binary to dist folder
-        run: |
-          mv target/x86_64-unknown-linux-gnu/release/rsdk target/dist/rsdk
+        run: mv target/x86_64-unknown-linux-gnu/release/rsdk target/dist/rsdk
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rsdk-linux-x86_64-${{ github.ref_name }}
+          path: target/dist
+
+  macos-build:
+    runs-on: macos-12
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          target: x86_64-apple-darwin
+
+      - name: Use Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build the project
+        run: cargo build --release --target x86_64-apple-darwin
+
+      - name: Generate Bash Plugin
+        run: bash build/unix/generate-plugin.sh templates/bash target/dist/bash rsdk
+
+      - name: Generate Fish Plugin
+        run: bash build/unix/generate-plugin.sh templates/fish target/dist/fish rsdk
+
+      - name: Move rsdk binary to dist folder
+        run: mv target/x86_64-apple-darwin/release/rsdk target/dist/rsdk
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rsdk-macos-x86_64-${{ github.ref_name }}
           path: target/dist

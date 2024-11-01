@@ -1,5 +1,7 @@
 #!/usr/bin/env fish
 
+cargo build
+
 # args
 set template_file $argv[1]
 set rsdk_path $argv[2]
@@ -14,7 +16,7 @@ mkdir -p $fish_conf_dir
 
 # Read the template file, replace placeholder, and save to the plugin directory
 
-set output_file $fish_plugin_dir/rsdk_plugin.fish 
+set output_file $fish_plugin_dir/rsdk_plugin.fish
 
 # Process the template, replace placeholder with actual rsdk path, and write to the functions directory
 cat $template_file | sed "s|PUT_RSDK_PATH_HERE|$rsdk_path|g" > $output_file

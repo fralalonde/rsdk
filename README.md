@@ -1,74 +1,98 @@
 # rsdk - Native JVM tools manager
 
-`rsdk` is a native command-line JVM tool manager, similar to SDKMAN.
+`rsdk` is a native command-line JVM tool manager.
 
-## Installation via Scoop
+It is an alternative front-end to the well-known SDKMAN.
+It does not require external tools (curl, zip) to be installed.
 
-1. Add the custom Scoop bucket (self-hosted from this repo):
+Rsdk can be installed on Windows, Mac and Linux systems.
+It integrates with bash, powershell, zsh and fish shells.
 
-    ```bash
-    templates bucket add rsdk-bucket https://github.com/fralalonde/rsdk
-    ```
+Rsdk has limited functionality (no offline mode, etc.)
+It is not pretty but works quite well.
 
-2. Install `rsdk`:
+## Installation
+For local install from source, see [BUILD.md](BUILD.md)
 
-    ```bash
-    templates install rsdk
-    ```
+### Windows
+Using [Scoop](https://scoop.sh/)
+``
+scoop bucket add my-bucket https://github.com/your-org/scoop-bucket
+scoop install rsdk
+``
 
-## Manual Installation
+### Bash
+Using [asdf](https://asdf-vm.com/)
+``
+asdf plugin-add rsdk https://github.com/your-org/asdf-rsdk.git
+asdf install rsdk latest
+``
 
-You can manually install the latest version of `rsdk` by following these steps:
+## Zsh
+Using [Zinit](https://github.com/zdharma-continuum/zinit)
+``
+zinit load your-org/rsdk
+``
 
-1. Download the latest `rsdk.exe` from the [releases page](https://github.com/yourusername/rsdk/releases).
-2. Move it to a folder like `C:\Tools` or any directory you prefer.
-3. Add that folder to your `PATH`:
-    - Right-click **This PC** and select **Properties**.
-    - Select **Advanced system settings**.
-    - Click **Environment Variables**.
-    - Find the **Path** variable under **System variables**, select it, and click **Edit**.
-    - Click **New** and add the path to the folder where `rsdk.exe` is stored.
-4. Open a new Command Prompt or PowerShell window and verify installation: `rsdk --version`
+Using [Antigen](https://github.com/zsh-users/antigen)
+``
+antigen bundle your-org/rsdk
+``
+
+### Fish
+Using [fisher](https://github.com/jorgebucaran/fisher)
+``fisher install fralalonde/rsdk@1``
+
+### Brew
+Using [Homebrew](https://brew.sh/)
+``
+brew tap your-org/rsdk
+brew install rsdk
+``
 
 ## Usage
+Rsdk deals in ``tools`` and `versions`. 
 
-### Install a Candidate
+### List available tools
+``rsdk list``
 
-``rsdk install <candidate> [version] [--install-path <path>]``
+### Install the default version of a tool 
+``rsdk install <tool>``
 
-Example: ``rsdk install java 17``
+Example: ``rsdk install maven``
 
-### Uninstall a Candidate
+Some tools (actually, just `java` (?)) do not have a default version. You must select a version to be installed.
 
-``rsdk uninstall <candidate> <version>``
-
-Example: ``rsdk uninstall java 17``
-
-### List Available Versions of a Candidate
-
-``rsdk list <candidate>``
+### List available versions of a tool
+``rsdk list <tool>`` 
 
 Example: ``rsdk list java``
 
-### Use a Specific Version of a Candidate
+### Install specific version of a tool
+``rsdk install <tool> <version>``
 
-``rsdk use <candidate> <version>``
+Example: ``rsdk install java 22.0.2-tem``
 
-Example: ``rsdk use java 17``
+Example: ``rsdk install maven 3.3.3``
 
-### Set a Version of a Candidate as Default
+### Remove a tool 
+``rsdk remove <tool> <version>``
 
-``rsdk default <candidate> <version>``
+Example: ``rsdk uninstall java 17``
+
+### Set the default version of a tool
+
+The default version of each tool is set on the PATH of new shell sessions.
+
+``rsdk default <tool> <version>``
 
 Example: ``rsdk default java 17``
 
-### Enable or Disable Offline Mode
+### Temporarily change version of a tool
 
-``rsdk offline enable``
+``rsdk use <tool> <version>``
 
-or
-
-``rsdk offline disable``
+Example: ``rsdk use java 17``
 
 ### Show Help
 
@@ -76,25 +100,8 @@ To display a full list of commands and options:
 
 ``rsdk --help``
 
-## Release 
+or just...
 
-### Prepare scoop release
+```rsdk```
 
-### Installation:
-When a user installs rsdk via Scoop, it will download and extract rsdk-windows.zip, which contains the rsdk.exe binary and the PowerShell module files.
-The rsdk.exe is added to the PATH, and the PowerShell module directory is added to the user's PSModulePath.
-
-### Autoupdate
-Future versions of rsdk will update by downloading the new ZIP files, extracting them, and updating the module path if necessary.
-
-### SHA-256 Hash
-Replace "PUT_YOUR_ZIP_HASH_HERE" with the correct SHA-256 hash of your rsdk-windows.zip. Generate it with the following command:
-  
-```powershell
-Get-FileHash "rsdk-windows.zip" -Algorithm SHA256
-```
-
-Or using sha256sum in Linux/macOS:
-```bash
-sha256sum rsdk-windows.zip
-```
+## Thanks

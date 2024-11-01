@@ -1,0 +1,30 @@
+#!/usr/bin/env zsh
+
+# Arguments
+template_file="$1"
+rsdk_path="$2"
+
+# Set default paths for Zsh plugin installation
+zsh_plugin_dir="$HOME/.zsh_plugins"
+zsh_profile="$HOME/.zshrc"
+
+# Ensure the plugin directory exists
+mkdir -p "$zsh_plugin_dir"
+
+# Define the output file path
+output_file="$zsh_plugin_dir/rsdk_plugin.zsh"
+
+# Process the template, replace placeholder with actual rsdk path, and write to the plugin directory
+sed "s|PUT_RSDK_PATH_HERE|$rsdk_path|g" "$template_file" > "$output_file"
+
+# Add the plugin directory to PATH and source the plugin in .zshrc if not already added
+if ! grep -q "source $output_file" "$zsh_profile"; then
+    echo "Adding rsdk plugin to Zsh configuration in $zsh_profile"
+    echo "" >> "$zsh_profile"
+    echo "# RSDK plugin setup" >> "$zsh_profile"
+    echo "export PATH=\"$zsh_plugin_dir:\$PATH\"" >> "$zsh_profile"
+    echo "source \"$output_file\"" >> "$zsh_profile"
+fi
+
+# Output completion message
+echo "Installed rsdk Zsh plugin to $zsh_plugin_dir and updated $zsh_profile"

@@ -1,6 +1,4 @@
-
 mod api;
-mod error;
 mod dir;
 mod version;
 mod shell;
@@ -12,15 +10,14 @@ use std::io::Write;
 use clap::{Parser, Subcommand};
 use log::debug;
 use crate::args::{Cli, ARGS};
-use crate::version::CandidateVersion;
+use crate::version::ToolVersion;
 
 /// Subcommands enum
 #[derive(Subcommand, Clone)]
 enum Commands {
-    Attach {
-    },
+    Attach {},
     Install {
-        candidate: String,
+        tool: String,
         version: Option<String>,
         #[arg(short, long)]
         force: bool,
@@ -28,29 +25,24 @@ enum Commands {
         default: bool,
     },
     Uninstall {
-        candidate: String,
+        tool: String,
         version: String,
     },
     List {
-        candidate: Option<String>,
-        #[arg(short, long)]
-        installed: bool
+        tool: Option<String>,
     },
     Installed {
-        candidate: Option<String>,
-        #[arg(short, long)]
-        installed: bool
+        tool: Option<String>,
     },
     Default {
-        candidate: String,
+        tool: String,
         version: String,
     },
     Use {
-        candidate: String,
+        tool: String,
         version: String,
     },
-    Flush {
-    },
+    Flush {},
 }
 
 fn main() -> anyhow::Result<()> {
@@ -63,16 +55,16 @@ fn main() -> anyhow::Result<()> {
 
     match &cli.command {
         Commands::Attach {} => {
-            let default_candidates = dir.all_defaults()?;
+            let default_tools = dir.all_defaults()?;
 
             let path = env::var_os("PATH").unwrap_or_default();
             let mut paths: Vec<_> = env::split_paths(&path)
-                // cleanup any hardwired candidate from PATH (how would it get there anyway)
-                .filter(|p| !p.starts_with(dir.candidates()))
+                // cleanup any hardwired tools from PATH (how would it get there anyway)
+                .filter(|p| !p.starts_with(dir.tools()))
                 .collect();
 
-            // Append each default candidate's `bin` directory to PATH
-            for default_version in default_candidates {
+            // Append each default tool's `bin` directory to PATH
+            for default_version in default_tools {
                 paths.push(default_version.bin());
                 shell::set_var(&default_version.home(), &default_version.path().to_string_lossy())?;
             }
@@ -80,76 +72,75 @@ fn main() -> anyhow::Result<()> {
             let new_path = env::join_paths(paths).expect("Failed to join paths");
             shell::set_var("PATH", &new_path.to_string_lossy())?;
         }
-        Commands::Install { candidate, version, force, default } => {
+        Commands::Install { tool, version, force, default } => {
             let api = api::Api::new(&dir.cache(), *force);
             let version = match version {
-                None => api.get_default_version(candidate)?,
+                None => api.get_default_version(tool)?,
                 Some(v) => v.clone(),
             };
-            println!("Installing {candidate} {version}");
+            println!("Installing {tool} {version}");
 
             let temp_dir = dir.temp();
             let work_dir = temp_dir.join("work");
 
-            let zip_file = api.get_cached_file(candidate, &version)?;
-            let cv = CandidateVersion::new(&dir,candidate, &version);
+            let zip_file = api.get_cached_file(tool, &version)?;
+            let cv = ToolVersion::new(&dir, tool, &version);
             debug!("file is {:?}", zip_file.to_string_lossy());
             cv.install_from_file(&zip_file, &work_dir, true)?;
-            if *default || ask_default(candidate, &version) {
+            if *default || ask_default(tool, &version) {
                 cv.set_default()?;
                 cv.set_current()?;
             }
-            println!("Installed {candidate} {version}");
+            println!("Installed {tool} {version}");
         }
-        Commands::Uninstall { candidate, version } => {
-            let cv = CandidateVersion::new(&dir,candidate, version);
+        Commands::Uninstall { tool, version } => {
+            let cv = ToolVersion::new(&dir, tool, version);
             cv.uninstall()?;
-            println!("Uninstalled {candidate} {version}");
+            println!("Uninstalled {tool} {version}");
         }
-        Commands::List { candidate, installed } => {
-            if !installed {
-                let api = api::Api::new(&dir.cache(), false);
-                match candidate {
-                    Some(c) => {
-                        for v in api.get_candidate_versions(c)? {
-                            println!("{v}");
-                        }
-                    }
-                    None => {
-                        for v in api.get_candidates()? {
-                            println!("{v}");
-                        }
+        Commands::List { tool } => {
+            let api = api::Api::new(&dir.cache(), false);
+            match tool {
+                Some(c) => {
+                    for v in api.get_tool_versions(c)? {
+                        println!("{v}");
                     }
                 }
-            } else {
-                for cv in dir.all_versions()? {
-                    if let Some(candidate) = candidate {
-                        if cv.candidate.eq(candidate) {
-                            println!("{cv}");
-                        }
-                    } else {
-                        println!("{cv}");
+                None => {
+                    for v in api.get_tools()? {
+                        println!("{v}");
                     }
                 }
             }
         }
-        Commands::Default { candidate, version } => {
-            let cv = CandidateVersion::new(&dir, candidate, version);
+        Commands::Installed { tool } => {
+            for cv in dir.all_versions()? {
+                if let Some(tool) = tool {
+                    if cv.tool.eq(tool) {
+                        println!("{cv}");
+                    }
+                } else {
+                    println!("{cv}");
+                }
+            }
+        }
+        Commands::Default { tool, version } => {
+            let cv = ToolVersion::new(&dir, tool, version);
             if cv.is_installed() {
                 cv.set_default()?
             } else {
                 eprintln!("{cv} is not installed")
             }
         }
-        Commands::Use { candidate, version } => {
-            let cv = CandidateVersion::new(&dir, candidate, version);
+        Commands::Use { tool, version } => {
+            let cv = ToolVersion::new(&dir, tool, version);
             if cv.is_installed() {
                 cv.set_current()?;
             } else {
                 eprintln!("{cv} is not installed")
             }
         }
-        Commands::Flush { } => {
+        Commands::Flush {} => {
             println!("Flushing cache");
             fs::remove_dir_all(dir.cache())?;
             fs::create_dir_all(dir.cache())?
@@ -158,8 +149,8 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn ask_default(candidate: &str, version: &str) -> bool {
-    print!("Do you want to make {candidate} {version} the default? (Y/n): ");
+pub fn ask_default(tool: &str, version: &str) -> bool {
+    print!("Do you want to make {tool} {version} the default? (Y/n): ");
     io::stdout().flush().expect("Failed to flush stdout");
 
     let mut input = String::new();

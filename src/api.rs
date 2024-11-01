@@ -35,31 +35,31 @@ impl Api {
     //     Ok(self.get_text(&format!("/broker/download/sdkman/version/stable"))?)
     // }
 
-    pub fn get_candidates(&self) -> Result<Vec<String>> {
+    pub fn get_tools(&self) -> Result<Vec<String>> {
         Ok(self.get_text("/candidates/all")?
             .split(",")
             .map(|v| v.to_string())
             .collect())
     }
 
-    pub fn get_candidate_versions(&self, candidate: &str) -> Result<Vec<String>> {
+    pub fn get_tool_versions(&self, tool: &str) -> Result<Vec<String>> {
         let platform = &self.platform;
-        let versions = self.get_text(&format!("/candidates/{candidate}/{platform}/versions/list?installed="))?;
+        let versions = self.get_text(&format!("/candidates/{tool}/{platform}/versions/list?installed="))?;
 
-        let versions = match candidate {
+        let versions = match tool {
             "java" => decode_java_versions(&versions),
             _ => decode_versions(&versions)
         };
         Ok(versions)
     }
 
-    pub fn get_default_version(&self, candidate: &str) -> Result<String> {
-        self.get_text(&format!("/candidates/default/{candidate}"))
+    pub fn get_default_version(&self, tool: &str) -> Result<String> {
+        self.get_text(&format!("/candidates/default/{tool}"))
     }
 
-    pub fn get_cached_file(&self, candidate: &str, version: &str) -> Result<PathBuf> {
+    pub fn get_cached_file(&self, tool: &str, version: &str) -> Result<PathBuf> {
         let platform = &self.platform;
-        let url = format!("{}/broker/download/{candidate}/{version}/{platform}", self.base_url);
+        let url = format!("{}/broker/download/{tool}/{version}/{platform}", self.base_url);
         self.client.get_cached_file(&url)
     }
 }

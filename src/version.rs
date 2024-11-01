@@ -20,23 +20,23 @@ use zip::ZipArchive;
 #[cfg(windows)]
 use std::{io};
 
-pub struct CandidateVersion {
+pub struct ToolVersion {
     rsdk: RsdkDir,
-    pub candidate: String,
+    pub tool: String,
     pub version: String,
 }
 
-impl Display for CandidateVersion {
+impl Display for ToolVersion {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{} {}", self.candidate, self.version))
+        f.write_fmt(format_args!("{} {}", self.tool, self.version))
     }
 }
 
-impl CandidateVersion {
-    pub fn new(dir: &RsdkDir, candidate: &str, version: &str) -> CandidateVersion {
-        CandidateVersion {
+impl ToolVersion {
+    pub fn new(dir: &RsdkDir, tool: &str, version: &str) -> ToolVersion {
+        ToolVersion {
             rsdk: dir.clone(),
-            candidate: candidate.to_string(),
+            tool: tool.to_string(),
             version: version.to_string(),
         }
     }
@@ -46,15 +46,15 @@ impl CandidateVersion {
     }
 
     pub fn path(&self) -> PathBuf {
-        self.rsdk.candidate_dir(&self.candidate).join(&self.version)
+        self.rsdk.tool_dir(&self.tool).join(&self.version)
     }
 
     pub fn home(&self) -> String {
-        format!("{}_HOME", self.candidate.to_uppercase())
+        format!("{}_HOME", self.tool.to_uppercase())
     }
 
     pub fn set_current(&self) -> anyhow::Result<()> {
-        let any_active = self.rsdk.candidate_dir(&self.candidate);
+        let any_active = self.rsdk.tool_dir(&self.tool);
         let path = env::var_os("PATH").unwrap_or_default();
         let mut paths: Vec<_> = env::split_paths(&path)
             .filter(|p| !p.starts_with(&any_active))
@@ -146,15 +146,15 @@ impl CandidateVersion {
     pub fn uninstall(&self) -> anyhow::Result<()> {
         let target_dir = self.path();
         if !target_dir.exists() {
-            bail!(format!("no candidate {} version {}", self.candidate, self.version))
+            bail!(format!("no tool {} version {}", self.tool, self.version))
         }
         // TODO deal with default & env
         Ok(fs::remove_dir_all(target_dir)?)
     }
 
     pub fn set_default(&self) -> anyhow::Result<()> {
-        let current_version = self.rsdk.current_default(&self.candidate)?;
-        let default_symlink_path = self.rsdk.default_symlink_path(&self.candidate);
+        let current_version = self.rsdk.current_default(&self.tool)?;
+        let default_symlink_path = self.rsdk.default_symlink_path(&self.tool);
         if let Some(current) = current_version {
             println!("removing previous symlink {:?} to version {}", default_symlink_path, current.version);
             remove_symlink_dir(&default_symlink_path)?;
@@ -168,7 +168,7 @@ impl CandidateVersion {
     }
 
     // pub fn is_default(&self) -> bool {
-    //     let cdef_path = self.rsdk.candidate_path(&self.candidate).join("default");
+    //     let cdef_path = self.rsdk.tool_path(&self.tool).join("default");
     //     match fs::read_link(&cdef_path) {
     //         Ok(p) => p.eq(&self.path()),
     //         Err(_) => false
