@@ -36,6 +36,11 @@ enum Commands {
         #[arg(short, long)]
         installed: bool
     },
+    Installed {
+        candidate: Option<String>,
+        #[arg(short, long)]
+        installed: bool
+    },
     Default {
         candidate: String,
         version: String,
