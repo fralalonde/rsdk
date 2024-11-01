@@ -27,19 +27,23 @@ jobs:
 
       - name: Generate PowerShell Module
         run: |
-          $Source = "templates\powershell"
-          $Destination = "target\powershell"
+          $Source = "templates\\powershell"
+          $Destination = "target\\dist\\powershell"
           & build\windows\Module-Template.ps1 -SourceDir $Source -DestinationDir $Destination -ExePath "rsdk.exe"
+        shell: pwsh
+
+      - name: Move rsdk binary to dist folder
+        run: |
+          $Source = "target\\x86_64-pc-windows-msvc\\release\\rsdk.exe"
+          $Destination = "target\\dist\\rsdk.exe"
+          Move-Item -Path $Source -Destination $Destination -Force
         shell: pwsh
 
       - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rsdk-windows-${{ github.ref_name }}-x86_64
-          path: |
-            target\**\rsdk.exe
-            target\**\*.psd1
-            target\**\*.psm1
+          name: rsdk-windows-x86_64-${{ github.ref_name }}
+          path: target\dist
 
   debian-build:
     runs-on: ubuntu-latest
@@ -60,17 +64,17 @@ jobs:
       - name: Build the project
         run: cargo build --release --target x86_64-unknown-linux-gnu
 
+      - name: Move rsdk binary to dist folder
+        run: bash mv target/x86_64-unknown-linux-gnu/release/rsdk target/dist/rsdk
+
       - name: Generate Bash Plugin
-        run: bash ./build/unix/generate-plugin.sh templates/bash target/bash rsdk
+        run: bash ./build/unix/generate-plugin.sh templates/bash target/dist/bash rsdk
 
       - name: Generate Bash Plugin Script
-        run: bash ./build/unix/generate-plugin.sh templates/fish target/fish rsdk
+        run: bash ./build/unix/generate-plugin.sh templates/fish target/dist/fish rsdk
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rsdk-linux-${{ github.ref_name }}-x86_64
-          path: |
-            target/x86_64-unknown-linux-gnu/release/rsdk
-            target/**/*.fish
-            target/**/*.bash
+          name: rsdk-linux-x86_64-${{ github.ref_name }}
+          path: target/dist

@@ -156,10 +156,10 @@ impl CandidateVersion {
         let current_version = self.rsdk.current_default(&self.candidate)?;
         let default_symlink_path = self.rsdk.default_symlink_path(&self.candidate);
         if let Some(current) = current_version {
-            debug!("removing previous symlink {:?} to version {}", default_symlink_path, current.version);
+            println!("removing previous symlink {:?} to version {}", default_symlink_path, current.version);
             remove_symlink_dir(&default_symlink_path)?;
         }
-        debug!("symlinking {:?} to {:?}", self.path(), default_symlink_path);
+        println!("symlinking {:?} to {:?}", self.path(), default_symlink_path);
         Ok(symlink::symlink_dir(self.path(), default_symlink_path)?)
     }
 

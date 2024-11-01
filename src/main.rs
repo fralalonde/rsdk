@@ -81,6 +81,7 @@ fn main() -> anyhow::Result<()> {
                 None => api.get_default_version(candidate)?,
                 Some(v) => v.clone(),
             };
+            println!("Installing {candidate} {version}");
 
             let temp_dir = dir.temp();
             let work_dir = temp_dir.join("work");
@@ -153,12 +154,15 @@ fn main() -> anyhow::Result<()> {
 }
 
 pub fn ask_default(candidate: &str, version: &str) -> bool {
-    print!("Do you want to make {candidate} {version} the default? (y/n): ");
+    print!("Do you want to make {candidate} {version} the default? (Y/n): ");
     io::stdout().flush().expect("Failed to flush stdout");
 
     let mut input = String::new();
     match io::stdin().read_line(&mut input) {
-        Ok(_) => matches!(input.trim().to_lowercase().as_str(), "y" | "yes"),
-        Err(_) => false,
+        Ok(_) => {
+            let response = input.trim().to_lowercase();
+            response.is_empty() || matches!(response.as_str(), "y" | "yes")
+        }
+        Err(_) => true,
     }
 }
