@@ -64,14 +64,15 @@ jobs:
       - name: Build the project
         run: cargo build --release --target x86_64-unknown-linux-gnu
 
-      - name: Move rsdk binary to dist folder
-        run: mv target/x86_64-unknown-linux-gnu/release/rsdk target/dist/rsdk
-
       - name: Generate Bash Plugin
-        run: bash ./build/unix/generate-plugin.sh templates/bash target/dist/bash rsdk
+        run: bash build/unix/generate-plugin.sh templates/bash target/dist/bash rsdk
 
       - name: Generate Bash Plugin Script
-        run: bash ./build/unix/generate-plugin.sh templates/fish target/dist/fish rsdk
+        run: bash build/unix/generate-plugin.sh templates/fish target/dist/fish rsdk
+
+      - name: Move rsdk binary to dist folder
+        run: |
+          mv target/x86_64-unknown-linux-gnu/release/rsdk target/dist/rsdk
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
