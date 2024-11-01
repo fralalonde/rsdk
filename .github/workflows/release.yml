@@ -13,14 +13,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Use Rust cache
-        uses: Swatinem/rust-cache@v2
-
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           target: x86_64-pc-windows-msvc
+
+      - name: Use Rust cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Build the project
         run: cargo build --release --target x86_64-pc-windows-msvc
@@ -52,20 +52,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Use Rust cache
-        uses: Swatinem/rust-cache@v2
-
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           target: x86_64-unknown-linux-gnu
 
+      - name: Use Rust cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Build the project
         run: cargo build --release --target x86_64-unknown-linux-gnu
 
       - name: Move rsdk binary to dist folder
-        run: bash mv target/x86_64-unknown-linux-gnu/release/rsdk target/dist/rsdk
+        run: mv target/x86_64-unknown-linux-gnu/release/rsdk target/dist/rsdk
 
       - name: Generate Bash Plugin
         run: bash ./build/unix/generate-plugin.sh templates/bash target/dist/bash rsdk

@@ -1,27 +1,31 @@
 {
   "version": "1.0.0",
-  "description": "Rust SDK Manager (rsdk) - A tool to manage SDKs",
-  "homepage": "https://github.com/fralalonde/rsdk",
+  "description": "A tool for managing rsdk modules.",
+  "homepage": "https://your-rsdk-repo-url",
   "license": "MIT",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/fralalonde/rsdk/archive/refs/tags/v0.0.1-alpha.zip",
-      "hash": "sha256:PUT_YOUR_ZIP_HASH_HERE"
+      "url": "https://path-to-your-release/rsdk-windows-1.0.0-x86_64.zip",
+      "hash": "SHA256_HASH",  // Replace with the actual SHA256 hash of the zip
+      "bin": "rsdk.exe",
+      "post_install": [
+        "$modulePath = \"$env:USERPROFILE\\Documents\\PowerShell\\Modules\\Rsdk\"",
+        "if (!(Test-Path $modulePath)) {",
+        "    New-Item -ItemType Directory -Path $modulePath -Force | Out-Null",
+        "}",
+        "Copy-Item -Path \"$dir\\powershell\\Rsdk.psd1\" -Destination \"$modulePath\\Rsdk.psd1\" -Force",
+        "Copy-Item -Path \"$dir\\powershell\\Rsdk.psm1\" -Destination \"$modulePath\\Rsdk.psm1\" -Force"
+      ],
+      "checkver": {
+        "url": "https://your-repo/releases/latest",
+        "regex": "rsdk-windows-([\\d.]+)-x86_64.zip"
+      },
+      "autoupdate": {
+        "url": "https://path-to-your-release/rsdk-windows-$version-x86_64.zip",
+        "hash": {
+          "url": "$url.sha256"
+        }
+      }
     }
-  },
-  "bin": "rsdk.exe",
-  "extract_dir": ".",
-  "checkver": {
-    "github": "https://github.com/fralalonde/rsdk"
-  },
-  "autoupdate": {
-    "64bit": {
-      "url": "https://github.com/fralalonde/rsdk/releases/download/v$version/rsdk-windows.zip"
-    }
-  },
-  "post_install": [
-    "if (!(Test-Path \"$env:PSModulePath -split ';' | Where-Object {$_ -eq \"$dir\\modules\"})) {",
-    "   [System.Environment]::SetEnvironmentVariable('PSModulePath', \"$env:PSModulePath;$dir\\modules\", [System.EnvironmentVariableTarget]::User)",
-    "}"
-  ]
+  }
 }
