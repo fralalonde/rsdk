@@ -16,17 +16,12 @@ function invoke_rsdk() {
     local argument_list=( "--shell" "bash" "--envout" "$temp_file" "$command" "${args[@]}" )
 
     # Run rsdk and capture live output
-    echo "$rsdkPath ${argument_list[*]}"
     "$rsdkPath" "${argument_list[@]}"
 
     # Apply environment changes if any were output
     if [[ -s "$temp_file" ]]; then
-        echo "envout contains:"
-        cat "$temp_file"
         # Source the temp file to apply any environment variable changes
         source "$temp_file"
-    else
-        echo "envout is empty"
     fi
 
     # Clean up
@@ -40,7 +35,9 @@ if [[ "$1" == "init" ]]; then
 
     # Alias `rsdk` to `invoke_rsdk` for global use
     alias rsdk="invoke_rsdk"
-    echo "rsdk initialized and alias set for global use."
+elif [[ $# -eq 0 ]]; then
+    # If no parameters are provided, call invoke_rsdk with --help
+    invoke_rsdk --help
 else
     # Otherwise, just call invoke_rsdk with the provided command and arguments
     invoke_rsdk "$@"

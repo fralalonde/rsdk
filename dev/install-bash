@@ -12,8 +12,11 @@ fi
 rsdk_home=~/.rsdk
 rsdk_bin="$rsdk_home"/bin
 
-mkdir -p $rsdk_home/bin
+rm -rf "$rsdk_bin"
+mkdir -p "$rsdk_bin"
+
 cp $rsdk_exe "$rsdk_bin"
+rsdk_exe="$rsdk_bin"/rsdk
 
 template_src=templates/bash/rsdk.bash
 template_dst=$rsdk_bin/rsdk.bash
@@ -22,5 +25,6 @@ cat $template_src | sed "s|PUT_RSDK_PATH_HERE|$rsdk_exe|g" > "$template_dst"
 
 # Output completion message
 echo "Installed rsdk bash to $rsdk_home"
-echo "Run 'source $template_dst' to activate rsdk now"
-echo "Run 'echo \"source $template_dst'\" >> ~/.bashrc' to make it permanent"
+echo
+echo "Run 'source $template_dst init' to activate rsdk now"
+echo "Run 'echo \"source $template_dst init'\" >> ~/.bashrc' to make it permanent"
