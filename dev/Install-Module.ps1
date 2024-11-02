@@ -8,12 +8,12 @@ $ModuleName = "Rsdk"
 $SourceDirectory = "templates\\powershell"
 
 # Build the executable using cargo
-if ($Release) {
+if ($Debug) {
+    & cargo build --debug
+    $ExePath = "target\\debug\\rsdk.exe"
+} else {
     & cargo build --release
     $ExePath = "target\\release\\rsdk.exe"
-} else {
-    & cargo build
-    $ExePath = "target\\debug\\rsdk.exe"
 }
 
 # Get the PowerShell module path for the current user

@@ -36,7 +36,7 @@ function invoke_rsdk() {
 # Check if the script is called with `init`
 if [[ "$1" == "init" ]]; then
     # Initialize the module
-    invoke_rsdk attach
+    invoke_rsdk init
 
     # Alias `rsdk` to `invoke_rsdk` for global use
     alias rsdk="invoke_rsdk"

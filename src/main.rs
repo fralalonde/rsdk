@@ -15,7 +15,7 @@ use crate::version::ToolVersion;
 /// Subcommands enum
 #[derive(Subcommand, Clone)]
 enum Commands {
-    Attach {},
+    Init {},
     Install {
         tool: String,
         version: Option<String>,
@@ -54,7 +54,7 @@ fn main() -> anyhow::Result<()> {
     let dir = dir::RsdkDir::new()?;
 
     match &cli.command {
-        Commands::Attach {} => {
+        Commands::Init {} => {
             let default_tools = dir.all_defaults()?;
 
             let path = env::var_os("PATH").unwrap_or_default();

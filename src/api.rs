@@ -11,10 +11,19 @@ pub struct Api {
 }
 
 #[cfg(target_os = "windows")]
-pub static PLATFORM: &str = "cygwin";
+pub static PLATFORM: &str = "windowsx64";
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 pub static PLATFORM: &str = "linuxx64";
+
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+pub static PLATFORM: &str = "linuxarm64";
+
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+pub static PLATFORM: &str = "darwinx64";
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub static PLATFORM: &str = "darwinarm64";
 
 impl Api {
     pub fn new(cache_dir: &Path, force: bool) -> Self {

@@ -12,43 +12,53 @@ Rsdk has limited functionality (no offline mode, etc.)
 It is not pretty but works quite well.
 
 ## Installation
-For local install from source, see [BUILD.md](BUILD.md)
+
+### From source
+To install from source, see [BUILD.md](BUILD.md)
 
 ### Windows
 Using [Scoop](https://scoop.sh/)
-``
-scoop bucket add my-bucket https://github.com/your-org/scoop-bucket
+
+```
+scoop bucket add my-bucket https://github.com/fralalonde/scoop-bucket
 scoop install rsdk
-``
+```
 
 ### Bash
 Using [asdf](https://asdf-vm.com/)
-``
-asdf plugin-add rsdk https://github.com/your-org/asdf-rsdk.git
+
+```
+asdf plugin-add rsdk https://github.com/fralalonde/asdf-rsdk.git
 asdf install rsdk latest
-``
+```
 
 ## Zsh
 Using [Zinit](https://github.com/zdharma-continuum/zinit)
-``
-zinit load your-org/rsdk
-``
+
+```
+zinit load fralalonde/rsdk
+```
 
 Using [Antigen](https://github.com/zsh-users/antigen)
-``
-antigen bundle your-org/rsdk
-``
+
+```
+antigen bundle fralalonde/rsdk
+```
 
 ### Fish
 Using [fisher](https://github.com/jorgebucaran/fisher)
-``fisher install fralalonde/rsdk@1``
+
+```
+fisher install fralalonde/rsdk@1
+```
 
 ### Brew
 Using [Homebrew](https://brew.sh/)
-``
-brew tap your-org/rsdk
+
+```
+brew tap fralalonde/rsdk
 brew install rsdk
-``
+```
 
 ## Usage
 Rsdk deals in ``tools`` and `versions`. 
