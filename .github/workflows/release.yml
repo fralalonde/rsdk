@@ -46,12 +46,17 @@ jobs:
       - name: Build the project
         run: cargo build --release
 
-      - name: Windows files packaging
+      - name: Powershell templates
         if: ${{ matrix.config.os == 'windows' }}
         run: |
           $Source = "templates\\powershell"
           $Destination = "target\\dist\\powershell"
           & build\windows\Module-Template.ps1 -SourceDir $Source -DestinationDir $Destination -ExePath "rsdk.exe"
+        shell: pwsh
+
+      - name: Windows EXE
+        if: ${{ matrix.config.os == 'windows' }}
+        run: |
           $Source = "target\\x86_64-pc-windows-msvc\\release\\rsdk.exe"
           $Destination = "target\\dist\\rsdk.exe"
           Move-Item -Path $Source -Destination $Destination -Force
@@ -62,6 +67,7 @@ jobs:
         run: |
           bash build/unix/generate-plugin.sh templates/bash target/dist/bash rsdk
           bash build/unix/generate-plugin.sh templates/fish target/dist/fish rsdk
+          find -name rsdk
           mv target/${{ matrix.config.rust_target }}/release/rsdk target/dist/rsdk
         shell: bash
 
