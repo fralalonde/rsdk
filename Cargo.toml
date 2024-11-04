@@ -11,17 +11,15 @@ env_logger = "0.11"
 symlink = "0.1"
 anyhow = "1.0"
 indicatif = "0.17"
-#tempfile = "3"
+sha = "1"
 md5 = "0.7"
 reqwest = { version = "0.12", features = ["blocking", "gzip"] }
-
-[target.'cfg(windows)'.dependencies]
 zip = "2.2"
-
-# POSIX-specific dependencies
-[target.'cfg(unix)'.dependencies]
 tar = "0.4"
 flate2 = "1.0"
+serde_ini = "0.2"
+serde_derive = "1"
+serde = { version = "1.0.213", features = ["derive"] }
 
 [profile.release]
 opt-level = "z"              # Optimize for binary size

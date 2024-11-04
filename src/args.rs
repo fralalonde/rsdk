@@ -10,7 +10,7 @@ pub struct Cli {
     pub command: Commands,
 
     #[arg(short, long)]
-    verbose: bool,
+    debug: bool,
 
     #[arg(short, long)]
     shell: Option<String>,
@@ -18,8 +18,8 @@ pub struct Cli {
     #[arg(short, long)]
     envout: Option<String>,
 
-    #[arg(short, long)]
-    offline: bool,
+    // #[arg(short, long)]
+    // offline: bool,
 
     #[arg(long)]
     insecure: bool,
@@ -27,13 +27,17 @@ pub struct Cli {
 
 pub static ARGS: OnceLock<Cli> = OnceLock::new();
 
+pub fn debug() -> bool {
+    ARGS.get().unwrap().debug
+}
+
 pub fn insecure() -> bool {
     ARGS.get().unwrap().insecure
 }
-
-pub fn offline() -> bool {
-    ARGS.get().unwrap().offline
-}
+//
+// pub fn offline() -> bool {
+//     ARGS.get().unwrap().offline
+// }
 
 pub fn shell() -> Option<String> {
     ARGS.get().unwrap().shell.clone()

@@ -1,8 +1,9 @@
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 use std::str;
 use anyhow::{Result};
-use crate::{args};
-use crate::http::CachedHttpClient;
+use crate::api_decode::{decode_java_versions, decode_versions};
+use crate::cache::{CacheEntry};
+use crate::http::{CachedHttpClient};
 
 pub struct Api {
     client: CachedHttpClient,
@@ -22,13 +23,13 @@ pub static PLATFORM: &str = "linuxarm64";
 #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
 pub static PLATFORM: &str = "darwinx64";
 
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[cfg(all(target_arch = "aarch64", target_os = "macos"))]
 pub static PLATFORM: &str = "darwinarm64";
 
 impl Api {
-    pub fn new(cache_dir: &Path, force: bool) -> Self {
+    pub fn new(cache_dir: &Path) -> Self {
         Self {
-            client: CachedHttpClient::new(cache_dir, args::offline(), force),
+            client: CachedHttpClient::new(cache_dir),
             base_url: "https://api.sdkman.io/2".to_string(),
             platform: PLATFORM,
         }
@@ -39,10 +40,11 @@ impl Api {
         self.client.get_text(&url)
     }
 
-    // pub fn get_api_version(&self) -> Result<String> {
-    //     let base_url = &self.base_url;
-    //     Ok(self.get_text(&format!("/broker/download/sdkman/version/stable"))?)
-    // }
+    #[allow(unused)]
+    pub fn get_api_version(&self) -> Result<String> {
+        let base_url = &self.base_url;
+        self.get_text("/broker/download/sdkman/version/stable")
+    }
 
     pub fn get_tools(&self) -> Result<Vec<String>> {
         Ok(self.get_text("/candidates/all")?
@@ -66,67 +68,16 @@ impl Api {
         self.get_text(&format!("/candidates/default/{tool}"))
     }
 
-    pub fn get_cached_file(&self, tool: &str, version: &str) -> Result<PathBuf> {
+    pub fn get_cached_file(&self, tool: &str, version: &str) -> Result<CacheEntry> {
         let platform = &self.platform;
         let url = format!("{}/broker/download/{tool}/{version}/{platform}", self.base_url);
         self.client.get_cached_file(&url)
     }
-}
 
-fn decode_versions(versions: &str) -> Vec<String> {
-    let mut sepcount = 0;
-    let mut mmuh: Vec<Vec<&str>> = versions
-        .lines()
-        .filter(|l| {
-            if l.starts_with("===") {
-                sepcount += 1;
-                false
-            } else {
-                sepcount > 1 && sepcount < 3
-            }
-        })
-        .map(|l| l.split(" ")
-            .filter(|x| !x.trim().is_empty())
-            .collect::<Vec<_>>())
-        .filter(|v| !v.is_empty())
-        .collect();
-
-    let mut vaches = Vec::new();
-    'zz: loop {
-        for v in &mut mmuh {
-            if v.is_empty() { break 'zz; }
-            vaches.push(v.remove(0).to_string());
-        }
+    #[allow(unused)]
+    pub fn get_post_install(&self, tool: &str, version: &str) -> Result<String> {
+        let platform = &self.platform;
+        self.get_text(&format!("/hooks/post/{tool}/{version}/{platform}"))
     }
-    vaches
 }
 
-fn decode_java_versions(versions: &str) -> Vec<String> {
-    let mut dash_lines = 0;
-    let mut eq_lines = 0;
-
-    let mut mmuh: Vec<Vec<&str>> = versions
-        .lines()
-        .filter(|l| {
-            if l.starts_with("---") {
-                dash_lines += 1;
-                false
-            } else if l.starts_with("===") {
-                eq_lines += 1;
-                false
-            } else  {
-                dash_lines == 1 && eq_lines < 3
-            }
-        })
-        .map(|l| l.split("|")
-            .map(|x| x.trim())
-            .collect::<Vec<_>>())
-        .filter(|v| !v.is_empty())
-        .collect();
-
-    let mut vaches = Vec::new();
-    for v in &mut mmuh {
-        vaches.push(v[5].to_string());
-    }
-    vaches
-}

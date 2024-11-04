@@ -29,6 +29,13 @@ Then run the appropriate install script.
 ### Zsh
 ``. dev/install-zsh``
 
+### Other platforms
+
+I do not have a collection of exotic machines to test on. If you use an architecture that isn't supported, 
+please add it to the defined `PLATFORM`s in `api.rs` and submit a [pull request](https://github.com/fralalonde/rsdk/pulls) for it.
+
+Alternative shells may require a bit more work to support but are welcome too. `nushell` support in particular would be nice.
+
 ## Build the executable
 
 The rsdk app by itself cannot alter the current shell environment and requires a shell wrapper to do so. 

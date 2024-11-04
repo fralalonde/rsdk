@@ -1,9 +1,12 @@
 mod api;
-mod dir;
+mod home;
 mod version;
 mod shell;
 mod http;
 mod args;
+mod http_utils;
+mod cache;
+mod api_decode;
 
 use std::{env, fs, io};
 use std::io::Write;
@@ -19,8 +22,6 @@ enum Commands {
     Install {
         tool: String,
         version: Option<String>,
-        #[arg(short, long)]
-        force: bool,
         #[arg(short, long)]
         default: bool,
     },
@@ -45,13 +46,22 @@ enum Commands {
     Flush {},
 }
 
-fn main() -> anyhow::Result<()> {
-    env_logger::init();
+const RUST_LOG: &str = "RUST_LOG";
 
+fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let _ = ARGS.set(cli.clone());
 
-    let dir = dir::RsdkDir::new()?;
+    if args::debug() {
+        env::set_var(RUST_LOG , "debug");
+        env::set_var("RUST_BACKTRACE" , "1");
+    } else if env::var(RUST_LOG ).is_err() {
+        env::set_var(RUST_LOG , "info");
+    }
+
+    env_logger::init();
+
+    let dir = home::RsdkHomeDir::new()?;
 
     match &cli.command {
         Commands::Init {} => {
@@ -72,8 +82,8 @@ fn main() -> anyhow::Result<()> {
             let new_path = env::join_paths(paths).expect("Failed to join paths");
             shell::set_var("PATH", &new_path.to_string_lossy())?;
         }
-        Commands::Install { tool, version, force, default } => {
-            let api = api::Api::new(&dir.cache(), *force);
+        Commands::Install { tool, version, default } => {
+            let api = api::Api::new(&dir.cache());
             let version = match version {
                 None => api.get_default_version(tool)?,
                 Some(v) => v.clone(),
@@ -83,10 +93,10 @@ fn main() -> anyhow::Result<()> {
             let temp_dir = dir.temp();
             let work_dir = temp_dir.join("work");
 
-            let zip_file = api.get_cached_file(tool, &version)?;
+            let archive = api.get_cached_file(tool, &version)?;
             let cv = ToolVersion::new(&dir, tool, &version);
-            debug!("file is {:?}", zip_file.to_string_lossy());
-            cv.install_from_file(&zip_file, &work_dir, true)?;
+            debug!("file is {:?}", archive.file_path());
+            cv.install_from_file(&archive, &work_dir, true)?;
             if *default || ask_default(tool, &version) {
                 cv.set_default()?;
                 cv.set_current()?;
@@ -99,7 +109,7 @@ fn main() -> anyhow::Result<()> {
             println!("Uninstalled {tool} {version}");
         }
         Commands::List { tool } => {
-            let api = api::Api::new(&dir.cache(), false);
+            let api = api::Api::new(&dir.cache());
             match tool {
                 Some(c) => {
                     for v in api.get_tool_versions(c)? {

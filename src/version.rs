@@ -6,22 +6,18 @@ use anyhow::{bail, Context};
 use log::{debug};
 use symlink::remove_symlink_dir;
 use crate::{shell};
-use crate::dir::RsdkDir;
+use crate::home::RsdkHomeDir;
 
-#[cfg(unix)]
 use std::io::BufReader;
-#[cfg(unix)]
 use tar::Archive;
-#[cfg(unix)]
 use flate2::bufread::GzDecoder;
 
-#[cfg(windows)]
 use zip::ZipArchive;
-#[cfg(windows)]
 use std::{io};
+use crate::cache::CacheEntry;
 
 pub struct ToolVersion {
-    rsdk: RsdkDir,
+    rsdk: RsdkHomeDir,
     pub tool: String,
     pub version: String,
 }
@@ -33,7 +29,7 @@ impl Display for ToolVersion {
 }
 
 impl ToolVersion {
-    pub fn new(dir: &RsdkDir, tool: &str, version: &str) -> ToolVersion {
+    pub fn new(dir: &RsdkHomeDir, tool: &str, version: &str) -> ToolVersion {
         ToolVersion {
             rsdk: dir.clone(),
             tool: tool.to_string(),
@@ -67,9 +63,18 @@ impl ToolVersion {
         Ok(())
     }
 
-    pub fn install_from_file(&self, zipfile: &Path, work_dir: &Path, force: bool) -> anyhow::Result<()> {
-        let archive = File::open(zipfile).context("opening zip")?;
-        Self::extract(&archive, work_dir)?;
+    pub fn install_from_file(&self, archive: &CacheEntry, work_dir: &Path, force: bool) -> anyhow::Result<()> {
+        let archive_file = File::open(archive.file_path()).context("opening archive")?;
+        let file_name = &archive.metadata.file_name.clone();
+
+        if file_name.ends_with(".zip") {
+            Self::extract_zip(&archive_file, work_dir)?;
+        } else if file_name.ends_with(".gz") {
+            Self::extract_tgz(&archive_file, work_dir)?;
+        } else {
+            bail!("unknown archive extension '{}'", file_name)
+        }
+
 
         // unzip complete, proceed to move to final dest
         let target_dir = &self.path();
@@ -107,16 +112,14 @@ impl ToolVersion {
         Ok(())
     }
 
-    #[cfg(unix)]
-    fn extract(file: &File, work_dir: &Path) -> anyhow::Result<()> {
+    fn extract_tgz(file: &File, work_dir: &Path) -> anyhow::Result<()> {
         let decompressed = GzDecoder::new(BufReader::new(file));
         let mut archive = Archive::new(decompressed);
         archive.unpack(work_dir)?;
         Ok(())
     }
 
-    #[cfg(windows)]
-    fn extract(file: &File, work_dir: &Path) -> anyhow::Result<()> {
+    fn extract_zip(file: &File, work_dir: &Path) -> anyhow::Result<()> {
         debug!("unzipping");
         let mut archive = ZipArchive::new(file)?;
         for i in 0..archive.len() {
@@ -129,7 +132,7 @@ impl ToolVersion {
                 create_dir_all(&outpath)?;
             } else {
                 if let Some(parent) = outpath.parent() {
-                    if !!parent.exists() {
+                    if !parent.exists() {
                         debug!("creating parent dir {:?}", parent);
                         create_dir_all(parent)?;
                     }
