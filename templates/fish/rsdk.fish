@@ -1,8 +1,5 @@
 #!/usr/bin/env fish
 
-# Path to rsdk (replace with actual path)
-set rsdkPath "PUT_RSDK_PATH_HERE"
-
 # Function to invoke rsdk and capture environment changes
 function rsdk
     set command $argv[1]
@@ -15,19 +12,14 @@ function rsdk
     set argument_list "--shell" "fish" "--envout" $temp_file $command $args
 
     # Run rsdk and capture live output
-    echo "$rsdkPath $argument_list"
-    eval "$rsdkPath $argument_list"
+    eval "PUT_RSDK_PATH_HERE $argument_list"
 
     # Apply environment changes if any were output
     if test -s $temp_file
-        echo "envout contains:"
-        cat $temp_file
         # Source the temp file to apply any environment variable changes
         source $temp_file
-    else
-        echo "envout is empty"
     end
 
-    # Clean up
+    # Clean up (should not be needed?)
     rm -f $temp_file
 end

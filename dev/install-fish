@@ -1,29 +1,39 @@
 #!/usr/bin/env fish
 
-cargo build
+# Build the executable
+if test "$argv[1]" = "--debug"
+    cargo build
+    set rsdk_exe "target/debug/rsdk"
+else
+    cargo build --release
+    set rsdk_exe "target/release/rsdk"
+end
 
-# args
-set template_file $argv[1]
-set rsdk_path $argv[2]
+# Install executable to bin dir
+set -l rsdk_home ~/.rsdk
+set -l rsdk_bin $rsdk_home/bin
+mkdir -p $rsdk_bin
+set -l rsdk_bin_exe "$rsdk_bin/rsdk"
+echo "Copy $rsdk_exe to $rsdk_bin_exe"
+if test -f $rsdk_bin_exe 
+    rm $rsdk_bin_exe
+end
+cp $rsdk_exe $rsdk_bin_exe
+set -l rsdk_exe "$rsdk_bin_exe"
 
-# Set default paths for Fish plugin installation
-set fish_plugin_dir ~/.config/fish/functions
-set fish_conf_dir ~/.config/fish/conf.d
-
-# Ensure required directories exist
+# Install functions
+set -l fish_plugin_dir ~/.config/fish/functions
 mkdir -p $fish_plugin_dir
+echo "Generate $fish_plugin_dir/rsdk.fish using rsdk path $rsdk_exe"
+cat templates/fish/rsdk.fish | sed "s|PUT_RSDK_PATH_HERE|$rsdk_exe|g" > $fish_plugin_dir/rsdk.fish
+
+# Install plugin
+set -l fish_conf_dir ~/.config/fish/conf.d
 mkdir -p $fish_conf_dir
+cp templates/fish/rsdk_plugin.fish $fish_conf_dir
 
-# Read the template file, replace placeholder, and save to the plugin directory
+echo "Installed rsdk fish plugin"
 
-set output_file $fish_plugin_dir/rsdk_plugin.fish
-
-# Process the template, replace placeholder with actual rsdk path, and write to the functions directory
-cat $template_file | sed "s|PUT_RSDK_PATH_HERE|$rsdk_path|g" > $output_file
-
-# Create a Fish plugin descriptor in the conf.d directory
-echo "set -gx PATH $fish_plugin_dir \$PATH" > $fish_conf_dir/rsdk_plugin.fish
-echo "echo 'rsdk fish plugin installed successfully'" >> $fish_conf_dir/rsdk_plugin.fish
-
-# Output completion message
-echo "Installed rsdk fish plugin to $fish_plugin_dir and generated descriptor at $fish_conf_dir/rsdk_plugin.fish"
+# Initialize and refresh rsdk in session
+rsdk init
+echo "Refreshed rsdk in session"
