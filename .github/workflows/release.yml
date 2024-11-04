@@ -44,7 +44,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Build the project
-        run: cargo build --release
+        run: |
+          cargo build --release
 
       - name: Powershell templates
         if: ${{ matrix.config.os == 'windows' }}
@@ -57,7 +58,7 @@ jobs:
       - name: Windows EXE
         if: ${{ matrix.config.os == 'windows' }}
         run: |
-          $Source = "target\\x86_64-pc-windows-msvc\\release\\rsdk.exe"
+          $Source = "target\\release\\rsdk.exe"
           $Destination = "target\\dist\\rsdk.exe"
           Move-Item -Path $Source -Destination $Destination -Force
         shell: pwsh
@@ -67,8 +68,7 @@ jobs:
         run: |
           bash build/unix/generate-plugin.sh templates/bash target/dist/bash rsdk
           bash build/unix/generate-plugin.sh templates/fish target/dist/fish rsdk
-          find -name rsdk
-          mv target/${{ matrix.config.rust_target }}/release/rsdk target/dist/rsdk
+          mv target/release/rsdk target/dist
         shell: bash
 
       - name: Upload Artifacts

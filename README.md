@@ -1,4 +1,4 @@
-# rsdk - Native JVM tools manager ![rsdk pictogram](.assets/rsdk.webp)
+# rsdk - Native JVM tools manager ![rsdk pictogram](.assets/rsdk_med.webp)
 
 `rsdk` is a native command-line JVM tool manager.
 
