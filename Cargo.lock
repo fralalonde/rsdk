@@ -1295,6 +1295,7 @@ dependencies = [
  "sha",
  "symlink",
  "tar",
+ "tempfile",
  "zip",
 ]
 

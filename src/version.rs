@@ -1,8 +1,8 @@
-use std::fs::{create_dir_all, File};
+use std::fs::{create_dir_all};
 use std::fmt::{Display, Formatter};
 use std::{env, fs};
 use std::path::{Path, PathBuf};
-use anyhow::{bail, Context};
+use anyhow::{bail};
 use log::{debug};
 use symlink::remove_symlink_dir;
 use crate::{shell};
@@ -65,14 +65,12 @@ impl ToolVersion {
     }
 
     pub fn install_from_file(&self, archive: &CacheEntry, work_dir: &Path, force: bool) -> anyhow::Result<()> {
-        let archive_file = File::open(archive.file_path()).context("opening archive")?;
-
-        if extract_zip(&archive_file, work_dir).is_ok() {
-            debug!("file was zip");
-        } else if extract_tgz(&archive_file, work_dir).is_ok() {
-            debug!("file was tgz");
-        } else {
-            bail!("file {:?} is neither a zip nor a tgz", archive.file_path())
+        if let Err(e) = extract_zip(&archive.file_path(), work_dir) {
+            debug!("file is not a zip: {:?}", e);
+            if let Err(e) = extract_tgz(&archive.file_path(), work_dir) {
+                debug!("file is not a tgz: {:?}", e);
+                bail!("file {:?} is neither a zip nor a tgz", archive.file_path())
+            }
         }
 
         // extraction complete, proceed to move to final dest
