@@ -6,109 +6,67 @@ on:
       - 'v*'  # Trigger on version tags like v1.0.0, v2.1.3, etc.
 
 jobs:
-  windows-build:
-    runs-on: windows-2022
+  build-rsdk:
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - runs-on: ubuntu-22.04
+            os: ubuntu
+            arch: x86_64
+            rust_target: x86_64-unknown-linux-gnu
+          - runs-on: macos-13
+            os: macos
+            arch: x86_64
+            rust_target: x86_64-apple-darwin
+          - runs-on: macos-13
+            os: macos
+            arch: aarch64
+            rust_target: aarch64-apple-darwin
+          - runs-on: windows-2022
+            os: windows
+            arch: x86_64
+            rust_target: x86_64-pc-windows-msvc
+
+    runs-on: ${{ matrix.config.runs-on }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@nightly
         with:
+          targets: ${{ matrix.config.rust_target }}
           toolchain: stable
-          target: x86_64-pc-windows-msvc
 
       - name: Use Rust cache
         uses: Swatinem/rust-cache@v2
 
       - name: Build the project
-        run: cargo build --release --target x86_64-pc-windows-msvc
+        run: cargo build --release
 
-      - name: Generate PowerShell Module
+      - name: Windows files packaging
+        if: ${{ matrix.config.os == 'windows' }}
         run: |
           $Source = "templates\\powershell"
           $Destination = "target\\dist\\powershell"
           & build\windows\Module-Template.ps1 -SourceDir $Source -DestinationDir $Destination -ExePath "rsdk.exe"
-        shell: pwsh
-
-      - name: Move rsdk binary to dist folder
-        run: |
-          $Source = "target\\x86_64-pc-windows-msvc\\release\\rsdk.exe"
+          $Source = "target\\${{ matrix.config.rust_target }}\\release\\rsdk.exe"
           $Destination = "target\\dist\\rsdk.exe"
           Move-Item -Path $Source -Destination $Destination -Force
         shell: pwsh
 
-      - name: Upload Windows Artifacts
+      - name: Unix files packaging
+        if: ${{ ! matrix.config.os == 'windows' }}
+        run: |
+          bash build/unix/generate-plugin.sh templates/bash target/dist/bash rsdk
+          bash build/unix/generate-plugin.sh templates/fish target/dist/fish rsdk
+          mv target/${{ matrix.config.rust_target }}/release/rsdk target/dist/rsdk
+        shell: bash
+
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rsdk-windows-x86_64-${{ github.ref_name }}
+          name: rsdk-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.ref_name }}
           path: target\dist
-
-  debian-build:
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          target: x86_64-unknown-linux-gnu
-
-      - name: Use Rust cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Build the project
-        run: cargo build --release --target x86_64-unknown-linux-gnu
-
-      - name: Generate Bash Plugin
-        run: bash build/unix/generate-plugin.sh templates/bash target/dist/bash rsdk
-
-      - name: Generate Fish Plugin
-        run: bash build/unix/generate-plugin.sh templates/fish target/dist/fish rsdk
-
-      - name: Move rsdk binary to dist folder
-        run: mv target/x86_64-unknown-linux-gnu/release/rsdk target/dist/rsdk
-
-      - name: Upload Linux Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: rsdk-linux-x86_64-${{ github.ref_name }}
-          path: target/dist
-
-  macos-build:
-    runs-on: macos-12
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          target: x86_64-apple-darwin
-
-      - name: Use Rust cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Build the project
-        run: cargo build --release --target x86_64-apple-darwin
-
-      - name: Generate Bash Plugin
-        run: bash build/unix/generate-plugin.sh templates/bash target/dist/bash rsdk
-
-      - name: Generate Fish Plugin
-        run: bash build/unix/generate-plugin.sh templates/fish target/dist/fish rsdk
-
-      - name: Move rsdk binary to dist folder
-        run: mv target/x86_64-apple-darwin/release/rsdk target/dist/rsdk
-
-      - name: Upload macOS Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: rsdk-macos-x86_64-${{ github.ref_name }}
-          path: target/dist

@@ -17,9 +17,9 @@ pub fn decode_versions(versions: &str) -> Vec<String> {
         .collect();
 
     let mut vervec = Vec::new();
-    'zz: loop {
+    'vv: loop {
         for v in &mut vertab {
-            if v.is_empty() { break 'zz; }
+            if v.is_empty() { break 'vv; }
             vervec.push(v.remove(0).to_string());
         }
     }

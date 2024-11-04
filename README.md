@@ -13,6 +13,8 @@ It is not pretty but works quite well.
 
 ## Installation
 
+TODO - only "from source" works for now 
+
 ### From source
 To install from source, see [BUILD.md](BUILD.md)
 

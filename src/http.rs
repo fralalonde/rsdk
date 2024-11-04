@@ -67,7 +67,7 @@ impl CachedHttpClient {
 
         let file_name = headers.get(header::CONTENT_DISPOSITION)
             .and_then(|value| extract_filename_from_disposition(value.to_str().ok()?))
-            .unwrap_or("file")
+            .unwrap_or("")
             .to_string();
 
         let pb = initialize_progress_bar(total_size, &file_name);

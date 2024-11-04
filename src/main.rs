@@ -7,6 +7,7 @@ mod args;
 mod http_utils;
 mod cache;
 mod api_decode;
+mod extract;
 
 use std::{env, fs, io};
 use std::io::Write;

@@ -8,13 +8,13 @@ use symlink::remove_symlink_dir;
 use crate::{shell};
 use crate::home::RsdkHomeDir;
 
-use std::io::BufReader;
-use tar::Archive;
-use flate2::bufread::GzDecoder;
-
-use zip::ZipArchive;
 use std::{io};
 use crate::cache::CacheEntry;
+use crate::extract::{extract_tgz, extract_zip};
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 
 pub struct ToolVersion {
     rsdk: RsdkHomeDir,
@@ -65,18 +65,16 @@ impl ToolVersion {
 
     pub fn install_from_file(&self, archive: &CacheEntry, work_dir: &Path, force: bool) -> anyhow::Result<()> {
         let archive_file = File::open(archive.file_path()).context("opening archive")?;
-        let file_name = &archive.metadata.file_name.clone();
 
-        if file_name.ends_with(".zip") {
-            Self::extract_zip(&archive_file, work_dir)?;
-        } else if file_name.ends_with(".gz") {
-            Self::extract_tgz(&archive_file, work_dir)?;
+        if extract_zip(&archive_file, work_dir).is_ok() {
+            debug!("file was zip");
+        } else if extract_tgz(&archive_file, work_dir).is_ok() {
+            debug!("file was tgz");
         } else {
-            bail!("unknown archive extension '{}'", file_name)
+            bail!("file {:?} is neither a zip nor a tgz", archive.file_path())
         }
 
-
-        // unzip complete, proceed to move to final dest
+        // extraction complete, proceed to move to final dest
         let target_dir = &self.path();
 
         let entries = fs::read_dir(work_dir)?
@@ -109,40 +107,9 @@ impl ToolVersion {
 
         debug!("renaming {:?} to {:?}", entry_path, target_dir);
         fs::rename(&entry_path, target_dir)?;
-        Ok(())
-    }
 
-    fn extract_tgz(file: &File, work_dir: &Path) -> anyhow::Result<()> {
-        let decompressed = GzDecoder::new(BufReader::new(file));
-        let mut archive = Archive::new(decompressed);
-        archive.unpack(work_dir)?;
-        Ok(())
-    }
-
-    fn extract_zip(file: &File, work_dir: &Path) -> anyhow::Result<()> {
-        debug!("unzipping");
-        let mut archive = ZipArchive::new(file)?;
-        for i in 0..archive.len() {
-            let mut zip_entry = archive.by_index(i)?;
-            let outpath = work_dir.join(zip_entry.name());
-
-            // Create directories as needed
-            if zip_entry.is_dir() {
-                debug!("creating dir {:?}", outpath);
-                create_dir_all(&outpath)?;
-            } else {
-                if let Some(parent) = outpath.parent() {
-                    if !parent.exists() {
-                        debug!("creating parent dir {:?}", parent);
-                        create_dir_all(parent)?;
-                    }
-                }
-                debug!("creating file {:?}", outpath);
-                let mut outfile = File::create(&outpath)?;
-                debug!("writing file {:?}", outpath);
-                io::copy(&mut zip_entry, &mut outfile)?;
-            }
-        }
+        #[cfg(unix)]
+        make_all_files_executable(&self.bin())?;
         Ok(())
     }
 
@@ -177,4 +144,25 @@ impl ToolVersion {
     //         Err(_) => false
     //     }
     // }
+}
+
+#[cfg(unix)]
+fn make_all_files_executable(path: &Path) -> io::Result<()> {
+    debug!("chmod files in {:?} to executable", path);
+    for entry in fs::read_dir(path)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+
+        // Only proceed if it's a file (ignore directories)
+        if file_type.is_file() {
+            let metadata = entry.metadata()?;
+            let mut permissions = metadata.permissions();
+
+            // Set the executable bit (octal 0o111 adds exec for user, group, and others)
+            debug!("chmod {:?} +x", entry.file_name());
+            permissions.set_mode(permissions.mode() | 0o111);
+            fs::set_permissions(entry.path(), permissions)?;
+        }
+    }
+    Ok(())
 }
