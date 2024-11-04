@@ -8,13 +8,14 @@ use symlink::remove_symlink_dir;
 use crate::{shell};
 use crate::home::RsdkHomeDir;
 
-use std::{io};
 use crate::cache::CacheEntry;
 use crate::extract::{extract_tgz, extract_zip};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
+#[cfg(unix)]
+use std::{io};
 
 pub struct ToolVersion {
     rsdk: RsdkHomeDir,
@@ -122,14 +123,11 @@ impl ToolVersion {
         Ok(fs::remove_dir_all(target_dir)?)
     }
 
-    pub fn set_default(&self) -> anyhow::Result<()> {
-        let current_version = self.rsdk.current_default(&self.tool)?;
+    pub fn make_default(&self) -> anyhow::Result<()> {
         let default_symlink_path = self.rsdk.default_symlink_path(&self.tool);
-        if let Some(current) = current_version {
-            println!("removing previous symlink {:?} to version {}", default_symlink_path, current.version);
-            remove_symlink_dir(&default_symlink_path)?;
-        }
-        println!("symlinking {:?} to {:?}", self.path(), default_symlink_path);
+        debug!("removing previous symlink {:?}", default_symlink_path);
+        remove_symlink_dir(&default_symlink_path)?;
+        debug!("symlinking {:?} to {:?}", self.path(), default_symlink_path);
         Ok(symlink::symlink_dir(self.path(), default_symlink_path)?)
     }
 

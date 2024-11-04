@@ -11,22 +11,22 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - runs-on: ubuntu-22.04
-            os: ubuntu
-            arch: x86_64
-            rust_target: x86_64-unknown-linux-gnu
-          - runs-on: macos-13
-            os: macos
-            arch: x86_64
-            rust_target: x86_64-apple-darwin
-          - runs-on: macos-13
-            os: macos
-            arch: aarch64
-            rust_target: aarch64-apple-darwin
           - runs-on: windows-2022
             os: windows
             arch: x86_64
             rust_target: x86_64-pc-windows-msvc
+          - runs-on: ubuntu-22.04
+            os: linux
+            arch: x86_64
+            rust_target: x86_64-unknown-linux-gnu
+          - runs-on: macos-13
+            os: mac
+            arch: aarch64
+            rust_target: aarch64-apple-darwin
+          - runs-on: macos-13
+            os: mac
+            arch: x86_64
+            rust_target: x86_64-apple-darwin
 
     runs-on: ${{ matrix.config.runs-on }}
 
@@ -52,13 +52,13 @@ jobs:
           $Source = "templates\\powershell"
           $Destination = "target\\dist\\powershell"
           & build\windows\Module-Template.ps1 -SourceDir $Source -DestinationDir $Destination -ExePath "rsdk.exe"
-          $Source = "target\\${{ matrix.config.rust_target }}\\release\\rsdk.exe"
+          $Source = "target\\x86_64-pc-windows-msvc\\release\\rsdk.exe"
           $Destination = "target\\dist\\rsdk.exe"
           Move-Item -Path $Source -Destination $Destination -Force
         shell: pwsh
 
       - name: Unix files packaging
-        if: ${{ ! matrix.config.os == 'windows' }}
+        if: ${{ matrix.config.os == 'linux' || matrix.config.os == 'mac' }}
         run: |
           bash build/unix/generate-plugin.sh templates/bash target/dist/bash rsdk
           bash build/unix/generate-plugin.sh templates/fish target/dist/fish rsdk
@@ -69,4 +69,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rsdk-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.ref_name }}
-          path: target\dist
+          path: target/dist

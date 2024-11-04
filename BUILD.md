@@ -45,3 +45,9 @@ It can still be useful to build and call the executable itself.
 ``cargo build --release``
 
 ``cargo build`` (debug version)
+
+## Debugging
+
+Running ``rsdk`` with the `--debug` flag will enable debug output and stack traces (equivalent of `RUST_BACKTRACE=1` and `RUST_LOG=debug`).
+
+For network debugging, ``--insecure`` disables certificate validation allowing use of self-signed certificates. 

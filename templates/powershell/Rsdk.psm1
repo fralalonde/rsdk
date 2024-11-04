@@ -44,4 +44,4 @@ function Invoke-Rsdk {
 
 # initialize module
 Set-Alias -Name rsdk -Value Invoke-Rsdk -Scope Global
-Invoke-Rsdk attach
+Invoke-Rsdk init

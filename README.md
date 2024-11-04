@@ -1,4 +1,4 @@
-# rsdk - Native JVM tools manager
+# rsdk - Native JVM tools manager ![rsdk pictogram](.assets/rsdk.webp)
 
 `rsdk` is a native command-line JVM tool manager.
 
@@ -8,8 +8,11 @@ It does not require external tools (curl, zip) to be installed.
 Rsdk can be installed on Windows, Mac and Linux systems.
 It integrates with bash, powershell, zsh and fish shells.
 
-Rsdk has limited functionality (no offline mode, etc.)
+Rsdk has limited functionality (no offline mode, etc.) 
 It is not pretty but works quite well.
+
+## Disclaimer
+**Rsdk is beta quality software and may spuriously eat your dog even if you didn't have one.**
 
 ## Installation
 
@@ -62,8 +65,12 @@ brew tap fralalonde/rsdk
 brew install rsdk
 ```
 
+### Network settings
+
+If proxying is required, ``rsdk`` honors the `http_proxy` and `https_proxy` environment variables (same as curl).
+
 ## Usage
-Rsdk deals in ``tools`` and `versions`. 
+Rsdk deals in ``tools`` and `versions`.
 
 ### List available tools
 ``rsdk list``

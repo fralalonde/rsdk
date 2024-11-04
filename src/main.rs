@@ -99,7 +99,7 @@ fn main() -> anyhow::Result<()> {
             debug!("file is {:?}", archive.file_path());
             cv.install_from_file(&archive, &work_dir, true)?;
             if *default || ask_default(tool, &version) {
-                cv.set_default()?;
+                cv.make_default()?;
                 cv.set_current()?;
             }
             println!("Installed {tool} {version}");
@@ -138,7 +138,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Default { tool, version } => {
             let cv = ToolVersion::new(&dir, tool, version);
             if cv.is_installed() {
-                cv.set_default()?
+                cv.make_default()?
             } else {
                 eprintln!("{cv} is not installed")
             }
