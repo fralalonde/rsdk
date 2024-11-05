@@ -2,7 +2,7 @@
 
 `rsdk` is a native command-line JVM tool manager.
 
-It is an alternative front-end to the well-known SDKMAN.
+It is an alternative front-end to the great [SDKMAN](https://sdkman.io/).
 It does not require external tools (curl, zip) to be installed.
 
 Rsdk can be installed on Windows, Mac and Linux systems.
