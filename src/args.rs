@@ -34,7 +34,7 @@ pub fn debug() -> bool {
 pub fn insecure() -> bool {
     ARGS.get().unwrap().insecure
 }
-//
+
 // pub fn offline() -> bool {
 //     ARGS.get().unwrap().offline
 // }

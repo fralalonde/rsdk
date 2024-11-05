@@ -67,20 +67,24 @@ fn main() -> anyhow::Result<()> {
     match &cli.command {
         Commands::Init {} => {
             let default_tools = dir.all_defaults()?;
-
-            let path = env::var_os("PATH").unwrap_or_default();
-            let mut paths: Vec<_> = env::split_paths(&path)
-                // cleanup any hardwired tools from PATH (how would it get there anyway)
-                .filter(|p| !p.starts_with(dir.tools()))
-                .collect();
+            let mut paths = vec![];
 
             // Append each default tool's `bin` directory to PATH
             for default_version in default_tools {
+                // prepend default tools path to have precedence over system packages
                 paths.push(default_version.bin());
+                debug!("setting env var {:?} to {:?}", default_version.home(), default_version.path());
                 shell::set_var(&default_version.home(), &default_version.path().to_string_lossy())?;
             }
 
-            let new_path = env::join_paths(paths).expect("Failed to join paths");
+            let path = env::var_os("PATH").unwrap_or_default();
+            env::split_paths(&path)
+                // cleanup any hardwired RSDK tools from PATH (how did it get there anyway?)
+                .filter(|p| !p.starts_with(dir.tools()))
+                .for_each(|p| paths.push(p));
+
+            let new_path = env::join_paths(paths)?;
+            debug!("updating PATH to {:?}", new_path);
             shell::set_var("PATH", &new_path.to_string_lossy())?;
         }
         Commands::Install { tool, version, default } => {
@@ -96,11 +100,11 @@ fn main() -> anyhow::Result<()> {
 
             let archive = api.get_cached_file(tool, &version)?;
             let cv = ToolVersion::new(&dir, tool, &version);
-            debug!("file is {:?}", archive.file_path());
+            debug!("archive is {:?}", archive.file_path());
             cv.install_from_file(&archive, &work_dir, true)?;
             if *default || ask_default(tool, &version) {
                 cv.make_default()?;
-                cv.set_current()?;
+                cv.make_current()?;
             }
             println!("Installed {tool} {version}");
         }
@@ -146,7 +150,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Use { tool, version } => {
             let cv = ToolVersion::new(&dir, tool, version);
             if cv.is_installed() {
-                cv.set_current()?;
+                cv.make_current()?;
             } else {
                 eprintln!("{cv} is not installed")
             }

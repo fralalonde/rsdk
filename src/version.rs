@@ -50,15 +50,17 @@ impl ToolVersion {
         format!("{}_HOME", self.tool.to_uppercase())
     }
 
-    pub fn set_current(&self) -> anyhow::Result<()> {
+    pub fn make_current(&self) -> anyhow::Result<()> {
         let any_active = self.rsdk.tool_dir(&self.tool);
         let path = env::var_os("PATH").unwrap_or_default();
-        let mut paths: Vec<_> = env::split_paths(&path)
-            .filter(|p| !p.starts_with(&any_active))
-            .collect();
 
-        paths.push(self.bin());
-        let new_path = env::join_paths(paths).expect("Failed to join paths");
+        // put bin first on path to take precedence over system-provided packages
+        let mut paths = vec![self.bin()];
+        env::split_paths(&path)
+            .filter(|p| !p.starts_with(&any_active))
+            .for_each(|p| paths.push(p));
+
+        let new_path = env::join_paths(paths)?;
         shell::set_var("PATH", &new_path.to_string_lossy())?;
         shell::set_var(&self.home(), &self.path().to_string_lossy())?;
         Ok(())
@@ -118,6 +120,7 @@ impl ToolVersion {
             bail!(format!("no tool {} version {}", self.tool, self.version))
         }
         // TODO deal with default & env
+        debug!("deleting all of {:?}", target_dir);
         Ok(fs::remove_dir_all(target_dir)?)
     }
 
