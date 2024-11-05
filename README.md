@@ -1,4 +1,4 @@
-# rsdk - Native JVM tools manager ![rsdk pictogram](.assets/rsdk_small.png)
+# rsdk - Native JVM tools manager
 
 `rsdk` is a native command-line JVM tool manager.
 
@@ -8,69 +8,60 @@ It does not require external tools (curl, zip) to be installed.
 Rsdk can be installed on Windows, Mac and Linux systems.
 It integrates with bash, powershell, zsh and fish shells.
 
-Rsdk has limited functionality (no offline mode, etc.) 
-It is not pretty but works quite well.
+Rsdk has limited functionality (no offline mode, etc.)
+See [issues](https://github.com/fralalonde/rsdk/issues) for a list of planned features.
 
 ## Disclaimer
-**Rsdk is beta quality software and may spuriously eat your dog even if you didn't have one.**
+**Rsdk is beta quality and may spuriously eat your dog even if you didn't have one.**
 
 ## Installation
 
-TODO - only "from source" works for now 
+Installing from source is the only way for now (TODO package managers).
 
-### From source
-To install from source, see [BUILD.md](BUILD.md)
+Rsdk is based on a compiled app. Installing from source requires [Rust to be installed](https://www.rust-lang.org/tools/install)
 
-### Windows
-Using [Scoop](https://scoop.sh/)
+### Clone the repo
 
-```
-scoop bucket add my-bucket https://github.com/fralalonde/scoop-bucket
-scoop install rsdk
-```
+``git clone https://github.com/fralalonde/rsdk.git``
 
-### Bash
-Using [asdf](https://asdf-vm.com/)
+or [download the source](https://github.com/fralalonde/rsdk/archive/refs/heads/main.zip)
 
-```
-asdf plugin-add rsdk https://github.com/fralalonde/asdf-rsdk.git
-asdf install rsdk latest
-```
+Then run the appropriate install script:
 
-## Zsh
-Using [Zinit](https://github.com/zdharma-continuum/zinit)
-
-```
-zinit load fralalonde/rsdk
-```
-
-Using [Antigen](https://github.com/zsh-users/antigen)
-
-```
-antigen bundle fralalonde/rsdk
-```
+### Powershell
+``.\dev\Install-Module.ps1``
 
 ### Fish
-Using [fisher](https://github.com/jorgebucaran/fisher)
 
-```
-fisher install fralalonde/rsdk@1
-```
+``. dev/install-fish``
 
-### Brew
-Using [Homebrew](https://brew.sh/)
+### Bash
+``. dev/install-bash``
 
-```
-brew tap fralalonde/rsdk
-brew install rsdk
-```
+### Zsh
+``. dev/install-zsh``
 
-### Network settings
+### Debug
+
+Append ``--debug`` to any install script for a debug build - faster compile, better stack traces, slower unzip.
+
+### Other platforms
+
+I do not have a collection of exotic machines to test on. If you use an architecture that isn't supported,
+please add it to the defined `PLATFORM`s in `api.rs` and submit a [pull request](https://github.com/fralalonde/rsdk/pulls) for it.
+
+Alternative shells may require a bit more work to support but are welcome too. `nushell` support in particular would be nice.
+
+## Network settings
 
 If proxying is required, ``rsdk`` honors the `http_proxy` and `https_proxy` environment variables (same as curl).
 
+If required, ``--insecure`` disables certificate validation allowing use of self-signed certificates.
+
 ## Usage
 Rsdk deals in ``tools`` and `versions`.
+
+Usage is mostly similar to ``sdkman`` but not quite as pretty or nice (yet).
 
 ### List available tools
 ``rsdk list``
