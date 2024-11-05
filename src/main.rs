@@ -112,6 +112,18 @@ fn main() -> anyhow::Result<()> {
             let cv = ToolVersion::new(&dir, tool, version);
             cv.uninstall()?;
             println!("Uninstalled {tool} {version}");
+            // FIXME use dir
+            // if cv.is_default() {
+            //     debug!("deleting default symlink");
+            //     fs::remove_file(dir.default_symlink_path(tool))?;
+            // }
+            if cv.is_current() {
+                debug!("unsetting HOME and removing bin from PATH");
+                // TODO
+            }
+            // TODO check for alternate installed versions
+            // propose new default/current
+            // OR delete tool dir if empty
         }
         Commands::List { tool } => {
             let api = api::Api::new(&dir.cache());

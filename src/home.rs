@@ -28,7 +28,7 @@ impl RsdkHomeDir {
         self.tool_dir(tool).join("default")
     }
 
-    pub fn current_default(&self, tool: &str) -> anyhow::Result<Option<ToolVersion>> {
+    pub fn get_default(&self, tool: &str) -> anyhow::Result<Option<ToolVersion>> {
         let def = self.default_symlink_path(tool);
         if !def.exists() {
             return Ok(None);
@@ -49,7 +49,7 @@ impl RsdkHomeDir {
             if entry.file_type()?.is_dir() {
                 if let Some(tool) = entry.file_name().to_str() {
                     // Check if there is a default version for this tool
-                    if let Some(default_version) = self.current_default(tool)? {
+                    if let Some(default_version) = self.get_default(tool)? {
                         defaults.push(default_version);
                     }
                 }

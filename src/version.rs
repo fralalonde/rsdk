@@ -50,22 +50,6 @@ impl ToolVersion {
         format!("{}_HOME", self.tool.to_uppercase())
     }
 
-    pub fn make_current(&self) -> anyhow::Result<()> {
-        let any_active = self.rsdk.tool_dir(&self.tool);
-        let path = env::var_os("PATH").unwrap_or_default();
-
-        // put bin first on path to take precedence over system-provided packages
-        let mut paths = vec![self.bin()];
-        env::split_paths(&path)
-            .filter(|p| !p.starts_with(&any_active))
-            .for_each(|p| paths.push(p));
-
-        let new_path = env::join_paths(paths)?;
-        shell::set_var("PATH", &new_path.to_string_lossy())?;
-        shell::set_var(&self.home(), &self.path().to_string_lossy())?;
-        Ok(())
-    }
-
     pub fn install_from_file(&self, archive: &CacheEntry, work_dir: &Path, force: bool) -> anyhow::Result<()> {
         if let Err(e) = extract_zip(&archive.file_path(), work_dir) {
             debug!("file is not a zip: {:?}", e);
@@ -134,8 +118,34 @@ impl ToolVersion {
         Ok(symlink::symlink_dir(self.path(), default_symlink_path)?)
     }
 
+    pub fn make_current(&self) -> anyhow::Result<()> {
+        let any_active = self.rsdk.tool_dir(&self.tool);
+        let path = env::var_os("PATH").unwrap_or_default();
+
+        // put bin first on path to take precedence over system-provided packages
+        let mut paths = vec![self.bin()];
+        env::split_paths(&path)
+            .filter(|p| !p.starts_with(&any_active))
+            .for_each(|p| paths.push(p));
+
+        let new_path = env::join_paths(paths)?;
+        shell::set_var("PATH", &new_path.to_string_lossy())?;
+        shell::set_var(&self.home(), &self.path().to_string_lossy())?;
+        Ok(())
+    }
+
     pub fn is_installed(&self) -> bool {
         self.path().exists()
+    }
+
+    // pub fn is_default(&self) -> bool {
+    //     self.path().exists()
+    // }
+
+    pub fn is_current(&self) -> bool {
+        env::var(&self.home())
+            .map(|home| home.eq(&self.path().to_string_lossy()))
+            .unwrap_or(false)
     }
 
     // pub fn is_default(&self) -> bool {
