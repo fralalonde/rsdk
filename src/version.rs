@@ -112,11 +112,11 @@ impl ToolVersion {
 
     pub fn make_default(&self) -> anyhow::Result<()> {
         let default_symlink_path = self.rsdk.default_symlink_path(&self.tool);
-        debug!("removing previous symlink {:?}", default_symlink_path);
-        if default_symlink_path.exists() {
+        if let Ok(target) = fs::read_link(&default_symlink_path) {
+            debug!("removing previous symlink {:?} to {:?}", default_symlink_path, target);
             remove_symlink_dir(&default_symlink_path)?;
         }
-        debug!("symlinking {:?} to {:?}", self.path(), default_symlink_path);
+        debug!("creating symlink {:?} to {:?}", self.path(), default_symlink_path);
         Ok(symlink::symlink_dir(self.path(), default_symlink_path)?)
     }
 
