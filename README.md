@@ -16,9 +16,9 @@ See [issues](https://github.com/fralalonde/rsdk/issues) for a list of planned fe
 
 ## Installation
 
-Installing from source is the only way for now (TODO package managers).
+Installing from source is the only way for now (TODO [package managers](https://github.com/fralalonde/rsdk/issues/6)).
 
-Rsdk is based on a compiled app. Installing from source requires [Rust to be installed](https://www.rust-lang.org/tools/install)
+Rsdk is based on a compiled program. Installing from source requires [Rust to be installed](https://www.rust-lang.org/tools/install)
 
 ### Clone the repo
 
@@ -26,31 +26,37 @@ Rsdk is based on a compiled app. Installing from source requires [Rust to be ins
 
 or [download the source](https://github.com/fralalonde/rsdk/archive/refs/heads/main.zip)
 
-Then run the appropriate install script:
+Then from the new `rsdk` directory, run the appropriate install script:
 
-### Powershell
-``.\dev\Install-Module.ps1``
-
-### Fish
-
-``. dev/install-fish``
-
-### Bash
-``. dev/install-bash``
-
-### Zsh
-``. dev/install-zsh``
+| Shell      | Command                    |
+|------------|----------------------------|
+| Powershell | `.\dev\Install-Module.ps1` |
+| Bash       | `. dev/install-bash`       |
+| Bash       | `. dev/install-zsh`        |
+| Fish       | `. dev/install-fish`       |
 
 ### Debug
 
-Append ``--debug`` to any install script for a debug build - faster compile, better stack traces, slower unzip.
+Append ``--debug`` to any install script for a debug build - faster compile, better stack traces, slower archive extraction.
 
-### Other platforms
+## Usage
+Rsdk deals in `tools` and `versions`.
 
-I do not have a collection of exotic machines to test on. If you use an architecture that isn't supported,
-please add it to the defined `PLATFORM`s in `api.rs` and submit a [pull request](https://github.com/fralalonde/rsdk/pulls) for it.
+Usage is mostly similar to `sdkman`.
 
-Alternative shells may require a bit more work to support but are welcome too. `nushell` support in particular would be nice.
+| Shell                        | Command Format                    | Examples                                                  |
+|------------------------------|-----------------------------------|-----------------------------------------------------------|
+| List available tools         | `rsdk list`                       |                                                           |
+| List available tool versions | `rsdk list <tool>`                | `rsdk list java`                                          |
+| Install default version      | `rsdk install <tool>`             | `rsdk install maven`                                      |
+| Install specific version     | `rsdk install <tool> <version>`   | `rsdk install maven 3.9.9`<br/>`rsdk install java 23-tem` |
+| Remove version               | `rsdk uninstall <tool> <version>` | `rsdk uninstall maven 3.9.9`                              |
+| Set default version          | `rsdk default <tool> <version>`   | `rsdk default maven 3.9.9`                                |
+| Set active version           | `rsdk use <tool> <version>`       | `rsdk use maven 3.9.9`                                    |
+| Flush entire cache           | `rsdk flush`                      |                                                           |
+| Show help                    | `rsdk --help`                     |                                                           |
+
+Running with ``rsdk --debug``  will enable verbose output and stack traces (equivalent of `RUST_BACKTRACE=1` and `RUST_LOG=debug`).  
 
 ## Network settings
 
@@ -58,60 +64,12 @@ If proxying is required, ``rsdk`` honors the `http_proxy` and `https_proxy` envi
 
 If required, ``--insecure`` disables certificate validation allowing use of self-signed certificates.
 
-## Usage
-Rsdk deals in ``tools`` and `versions`.
+### Other platforms
 
-Usage is mostly similar to ``sdkman`` but not quite as pretty or nice (yet).
+I do not have a collection of exotic machines to test on. If you use an architecture that isn't supported,
+please add it to the defined `PLATFORM`s in `api.rs` and submit a [pull request](https://github.com/fralalonde/rsdk/pulls) for it.
 
-### List available tools
-``rsdk list``
-
-### Install the default version of a tool 
-``rsdk install <tool>``
-
-Example: ``rsdk install maven``
-
-Some tools (actually, just `java` (?)) do not have a default version. You must select a version to be installed.
-
-### List available versions of a tool
-``rsdk list <tool>`` 
-
-Example: ``rsdk list java``
-
-### Install specific version of a tool
-``rsdk install <tool> <version>``
-
-Example: ``rsdk install java 22.0.2-tem``
-
-Example: ``rsdk install maven 3.3.3``
-
-### Remove a tool 
-``rsdk remove <tool> <version>``
-
-Example: ``rsdk uninstall java 17``
-
-### Set the default version of a tool
-
-The default version of each tool is set on the PATH of new shell sessions.
-
-``rsdk default <tool> <version>``
-
-Example: ``rsdk default java 17``
-
-### Temporarily change version of a tool
-
-``rsdk use <tool> <version>``
-
-Example: ``rsdk use java 17``
-
-### Show Help
-
-To display a full list of commands and options:
-
-``rsdk --help``
-
-or just...
-
-```rsdk```
+Alternative shells may require a bit more work to support but are welcome too. 
+`nushell` support in particular would be [nice](https://github.com/fralalonde/rsdk/issues/1).
 
 ## Thanks

@@ -4,7 +4,7 @@ use std::path::{PathBuf};
 use directories::UserDirs;
 use crate::version::ToolVersion;
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RsdkHomeDir {
     pub root: PathBuf,
 }
@@ -28,58 +28,49 @@ impl RsdkHomeDir {
         self.tool_dir(tool).join("default")
     }
 
-    pub fn get_default(&self, tool: &str) -> anyhow::Result<Option<ToolVersion>> {
-        let def = self.default_symlink_path(tool);
-        if !def.exists() {
-            return Ok(None);
-        }
-        let linked = fs::read_link(def)?;
-        Ok(linked.as_path().iter().last()
-            .and_then(|version| version.to_str().map(|version| version.to_owned()))
-            .map(|version| ToolVersion::new(self, tool, &version)))
+    #[allow(unused)]
+    pub fn default_version(&self, tool: &str) -> anyhow::Result<Option<ToolVersion>> {
+        Ok(self
+            .installed_versions(tool)?
+            .find(|version| version.is_default()))
     }
 
-    pub fn all_defaults(&self) -> anyhow::Result<Vec<ToolVersion>> {
-        let mut defaults = Vec::new();
-        let tool_dir = self.tools();
-
-        // Iterate over directories in the `tools` path
-        for entry in fs::read_dir(tool_dir)? {
-            let entry = entry?;
-            if entry.file_type()?.is_dir() {
-                if let Some(tool) = entry.file_name().to_str() {
-                    // Check if there is a default version for this tool
-                    if let Some(default_version) = self.get_default(tool)? {
-                        defaults.push(default_version);
-                    }
-                }
-            }
-        }
-        Ok(defaults)
+    pub fn installed_versions<'a>(&'a self, tool: &'a str) -> anyhow::Result<impl Iterator<Item=ToolVersion> + 'a> {
+        Ok(self
+            .all_installed()?
+            .filter(|version| version.tool.eq(tool)))
     }
 
-    pub fn all_versions(&self) -> anyhow::Result<Vec<ToolVersion>> {
-        let mut versions = Vec::new();
+    /// Used at init time
+    pub fn all_defaults(&self) -> anyhow::Result<impl Iterator<Item=ToolVersion> + '_> {
+        Ok(self
+            .all_installed()?
+            .filter(|version| version.is_default()))
+    }
+
+    pub fn all_installed(&self) -> anyhow::Result<impl Iterator<Item=ToolVersion> + '_> {
         let tools_dir = self.tools();
 
-        // Iterate over directories in the `tools` path
-        for entry in fs::read_dir(tools_dir)? {
-            let c_entry = entry?;
-            if c_entry.file_type()?.is_dir() {
-                if let Some(tool) = c_entry.file_name().to_str() {
-                    for v_entry in fs::read_dir(self.tool_dir(tool))? {
-                        let vv = v_entry?;
-                        if vv.file_type()?.is_dir() {
-                            if let Some(version) = vv.file_name().to_str() {
-                                let cv = ToolVersion::new(self, tool, version);
-                                versions.push(cv);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Ok(versions)
+        let tool_iter = fs::read_dir(tools_dir)?
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_type().ok().map_or(false, |ft| ft.is_dir()))
+            .flat_map(move |tool_entry| {
+                let tool_name = tool_entry.file_name().into_string().ok()?;
+                let tool_dir = self.tool_dir(&tool_name);
+                Some(
+                    fs::read_dir(tool_dir)
+                        .ok()?
+                        .filter_map(Result::ok)
+                        .filter(|entry| entry.file_type().ok().map_or(false, |ft| ft.is_dir()))
+                        .filter_map(move |version_entry| {
+                            let version_name = version_entry.file_name().into_string().ok()?;
+                            Some(ToolVersion::new(self, &tool_name, &version_name))
+                        }),
+                )
+            })
+            .flatten();
+
+        Ok(tool_iter)
     }
 
     pub fn tools(&self) -> PathBuf {

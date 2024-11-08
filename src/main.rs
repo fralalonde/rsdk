@@ -11,6 +11,7 @@ mod extract;
 
 use std::{env, fs, io};
 use std::io::Write;
+use anyhow::bail;
 use clap::{Parser, Subcommand};
 use log::debug;
 use crate::args::{Cli, ARGS};
@@ -62,11 +63,11 @@ fn main() -> anyhow::Result<()> {
 
     env_logger::init();
 
-    let dir = home::RsdkHomeDir::new()?;
+    let rsdk_home = home::RsdkHomeDir::new()?;
 
     match &cli.command {
         Commands::Init {} => {
-            let default_tools = dir.all_defaults()?;
+            let default_tools = rsdk_home.all_defaults()?;
             let mut paths = vec![];
 
             // Append each default tool's `bin` directory to PATH
@@ -80,7 +81,7 @@ fn main() -> anyhow::Result<()> {
             let path = env::var_os("PATH").unwrap_or_default();
             env::split_paths(&path)
                 // cleanup any hardwired RSDK tools from PATH (how did it get there anyway?)
-                .filter(|p| !p.starts_with(dir.tools()))
+                .filter(|p| !p.starts_with(rsdk_home.tools()))
                 .for_each(|p| paths.push(p));
 
             let new_path = env::join_paths(paths)?;
@@ -88,18 +89,22 @@ fn main() -> anyhow::Result<()> {
             shell::set_var("PATH", &new_path.to_string_lossy())?;
         }
         Commands::Install { tool, version, default } => {
-            let api = api::Api::new(&dir.cache());
+            let api = api::Api::new(&rsdk_home.cache());
             let version = match version {
                 None => api.get_default_version(tool)?,
                 Some(v) => v.clone(),
             };
-            println!("Installing {tool} {version}");
 
-            let temp_dir = dir.temp();
+            let cv = ToolVersion::new(&rsdk_home, tool, &version);
+            if cv.is_installed() {
+                bail!("{} is already installed", cv)
+            }
+
+            println!("Installing {tool} {version}");
+            let temp_dir = rsdk_home.temp();
             let work_dir = temp_dir.join("work");
 
             let archive = api.get_cached_file(tool, &version)?;
-            let cv = ToolVersion::new(&dir, tool, &version);
             debug!("archive is {:?}", archive.file_path());
             cv.install_from_file(&archive, &work_dir, true)?;
             if *default || ask_default(tool, &version) {
@@ -109,24 +114,38 @@ fn main() -> anyhow::Result<()> {
             println!("Installed {tool} {version}");
         }
         Commands::Uninstall { tool, version } => {
-            let cv = ToolVersion::new(&dir, tool, version);
+            let cv = ToolVersion::new(&rsdk_home, tool, version);
+
+            if cv.is_default() {
+                debug!("deleting default symlink to deleted version");
+                fs::remove_file(rsdk_home.default_symlink_path(tool))?;
+            }
+
             cv.uninstall()?;
             println!("Uninstalled {tool} {version}");
-            // FIXME use dir
-            // if cv.is_default() {
-            //     debug!("deleting default symlink");
-            //     fs::remove_file(dir.default_symlink_path(tool))?;
-            // }
-            if cv.is_current() {
-                debug!("unsetting HOME and removing bin from PATH");
-                // TODO
+
+            let vv: Vec<_> = rsdk_home.installed_versions(tool)?.collect();
+            match vv.len() {
+                0 => {
+                    debug!("deleted last tool version, deleting tool dir too");
+                    fs::remove_dir_all(rsdk_home.tool_dir(tool))?
+                }
+                _ => {
+                    let new_cv = &vv[0];
+                    if cv.is_default() {
+                        new_cv.make_default()?;
+                        // debug!("deleting default symlink");
+                        // fs::remove_file(dir.default_symlink_path(tool))?;
+                    }
+                    if cv.is_current() {
+                        new_cv.make_current()?;
+                    }
+                    println!("{} version {} is the new default", new_cv.tool, new_cv.version)
+                }
             }
-            // TODO check for alternate installed versions
-            // propose new default/current
-            // OR delete tool dir if empty
         }
         Commands::List { tool } => {
-            let api = api::Api::new(&dir.cache());
+            let api = api::Api::new(&rsdk_home.cache());
             match tool {
                 Some(c) => {
                     for v in api.get_tool_versions(c)? {
@@ -141,7 +160,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Commands::Installed { tool } => {
-            for cv in dir.all_versions()? {
+            for cv in rsdk_home.all_installed()? {
                 if let Some(tool) = tool {
                     if cv.tool.eq(tool) {
                         println!("{cv}");
@@ -152,7 +171,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Commands::Default { tool, version } => {
-            let cv = ToolVersion::new(&dir, tool, version);
+            let cv = ToolVersion::new(&rsdk_home, tool, version);
             if cv.is_installed() {
                 cv.make_default()?
             } else {
@@ -160,7 +179,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Commands::Use { tool, version } => {
-            let cv = ToolVersion::new(&dir, tool, version);
+            let cv = ToolVersion::new(&rsdk_home, tool, version);
             if cv.is_installed() {
                 cv.make_current()?;
             } else {
@@ -169,8 +188,8 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Flush {} => {
             println!("Flushing cache");
-            fs::remove_dir_all(dir.cache())?;
-            fs::create_dir_all(dir.cache())?
+            fs::remove_dir_all(rsdk_home.cache())?;
+            fs::create_dir_all(rsdk_home.cache())?
         }
     }
     Ok(())

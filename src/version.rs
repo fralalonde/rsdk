@@ -17,6 +17,7 @@ use std::os::unix::fs::PermissionsExt;
 #[cfg(unix)]
 use std::{io};
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct ToolVersion {
     rsdk: RsdkHomeDir,
     pub tool: String,
@@ -100,6 +101,7 @@ impl ToolVersion {
 
     pub fn uninstall(&self) -> anyhow::Result<()> {
         let target_dir = self.path();
+        debug!("deleting dir {:?}", target_dir);
         if !target_dir.exists() {
             bail!(format!("no tool {} version {}", self.tool, self.version))
         }
@@ -138,23 +140,19 @@ impl ToolVersion {
         self.path().exists()
     }
 
-    // pub fn is_default(&self) -> bool {
-    //     self.path().exists()
-    // }
-
     pub fn is_current(&self) -> bool {
-        env::var(&self.home())
+        env::var(self.home())
             .map(|home| home.eq(&self.path().to_string_lossy()))
             .unwrap_or(false)
     }
 
-    // pub fn is_default(&self) -> bool {
-    //     let cdef_path = self.rsdk.tool_path(&self.tool).join("default");
-    //     match fs::read_link(&cdef_path) {
-    //         Ok(p) => p.eq(&self.path()),
-    //         Err(_) => false
-    //     }
-    // }
+    pub fn is_default(&self) -> bool {
+        let cdef_path = self.rsdk.default_symlink_path(&self.tool);
+        match fs::read_link(&cdef_path) {
+            Ok(p) => p.eq(&self.path()),
+            Err(_) => false
+        }
+    }
 }
 
 #[cfg(unix)]
