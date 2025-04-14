@@ -19,7 +19,7 @@ pub fn set_env_var_after_exit(name: &str, value: &str) -> io::Result<()> {
             let set_cmd = match shell.as_str() {
                 "powershell" => format!("$env:{name} = '{value}'"),
                 "bash" | "zsh" | "sh" => format!("export {name}=\"{value}\""),
-                "fish" => format!("set -x {name} '{value}'"),
+                "fish" => format!("set -gx {name} '{value}'"),
                 _ => {
                     warn!("Unsupported shell specified: {}", shell);
                     "".to_string()
