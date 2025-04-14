@@ -2,7 +2,7 @@ use fs::create_dir_all;
 use std::{fs, io};
 use std::path::{PathBuf};
 use directories::UserDirs;
-use crate::version::ToolVersion;
+use crate::tool_version::ToolVersion;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RsdkHomeDir {
@@ -53,7 +53,7 @@ impl RsdkHomeDir {
 
         let tool_iter = fs::read_dir(tools_dir)?
             .filter_map(Result::ok)
-            .filter(|entry| entry.file_type().ok().map_or(false, |ft| ft.is_dir()))
+            .filter(|entry| entry.file_type().ok().is_some_and(|ft| ft.is_dir()))
             .flat_map(move |tool_entry| {
                 let tool_name = tool_entry.file_name().into_string().ok()?;
                 let tool_dir = self.tool_dir(&tool_name);
@@ -61,7 +61,7 @@ impl RsdkHomeDir {
                     fs::read_dir(tool_dir)
                         .ok()?
                         .filter_map(Result::ok)
-                        .filter(|entry| entry.file_type().ok().map_or(false, |ft| ft.is_dir()))
+                        .filter(|entry| entry.file_type().ok().is_some_and(|ft| ft.is_dir()))
                         .filter_map(move |version_entry| {
                             let version_name = version_entry.file_name().into_string().ok()?;
                             Some(ToolVersion::new(self, &tool_name, &version_name))

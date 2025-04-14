@@ -18,7 +18,6 @@ zip = "2.2"
 tar = "0.4"
 flate2 = "1.0"
 tempfile = "3"
-#compress-tools = "0.15"
 serde_ini = "0.2"
 serde_derive = "1"
 serde = { version = "1.0.213", features = ["derive"] }

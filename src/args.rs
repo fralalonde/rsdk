@@ -1,13 +1,13 @@
 use std::sync::OnceLock;
 use clap::Parser;
-use crate::Commands;
+use crate::Command;
 
 /// CLI Struct for command-line arguments
 #[derive(Parser, Clone)]
 #[command(name = "rsdk", version = "0.1", about = "Rust SDK Manager")]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Command>,
 
     #[arg(short, long)]
     debug: bool,

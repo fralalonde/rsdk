@@ -32,7 +32,7 @@ Then from the new `rsdk` directory, run the appropriate install script:
 |------------|----------------------------|
 | Powershell | `.\dev\Install-Module.ps1` |
 | Bash       | `. dev/install-bash`       |
-| Bash       | `. dev/install-zsh`        |
+| Zsh        | `. dev/install-zsh`        |
 | Fish       | `. dev/install-fish`       |
 
 ### Debug

@@ -14,6 +14,13 @@ function rsdk
     # Run rsdk and capture live output
     eval "PUT_RSDK_PATH_HERE $argument_list"
 
+    # Dump temp file if debugging
+    if contains -- --debug $argv
+        echo "---[ debug env changes ]---"
+        cat $temp_file
+        echo "---------------------------"
+    end
+
     # Apply environment changes if any were output
     if test -s $temp_file
         # Source the temp file to apply any environment variable changes

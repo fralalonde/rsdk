@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail};
 use log::{debug};
 use symlink::remove_symlink_dir;
-use crate::{shell};
-use crate::home::RsdkHomeDir;
+use crate::{sdkman_client, shell};
+use crate::rsdk_home_dir::RsdkHomeDir;
 
 use crate::cache::CacheEntry;
-use crate::extract::{extract_tgz, extract_zip};
+use crate::archive_extract::{extract_tgz, extract_zip};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -48,10 +48,32 @@ impl ToolVersion {
     }
 
     pub fn home(&self) -> String {
-        format!("{}_HOME", self.tool.to_uppercase())
+        home_env(&self.tool)
     }
 
-    pub fn install_from_file(&self, archive: &CacheEntry, work_dir: &Path, force: bool) -> anyhow::Result<()> {
+    pub fn install(home: &RsdkHomeDir, tool: &String, version : &Option<String>) -> anyhow::Result<(ToolVersion, bool)> {
+        let api = sdkman_client::SdkManClient::new(&home.cache());
+        let version = match version {
+            None => api.get_default_version(tool)?,
+            Some(v) => v.clone(),
+        };
+
+        let tv = ToolVersion::new(home, tool, &version);
+        if tv.is_installed() {
+            return Ok((tv, false));
+        }
+
+        println!("Installing {tool} {version}");
+        let temp_dir = home.temp();
+        let work_dir = temp_dir.join("work");
+
+        let archive = api.get_cached_file(tool, &version)?;
+        debug!("archive is {:?}", archive.file_path());
+        tv.install_from_file(&archive, &work_dir, true)?;
+        Ok((tv, true))
+    }
+
+    fn install_from_file(&self, archive: &CacheEntry, work_dir: &Path, force: bool) -> anyhow::Result<()> {
         if let Err(e) = extract_zip(&archive.file_path(), work_dir) {
             debug!("file is not a zip: {:?}", e);
             if let Err(e) = extract_tgz(&archive.file_path(), work_dir) {
@@ -131,8 +153,8 @@ impl ToolVersion {
             .for_each(|p| paths.push(p));
 
         let new_path = env::join_paths(paths)?;
-        shell::set_var("PATH", &new_path.to_string_lossy())?;
-        shell::set_var(&self.home(), &self.path().to_string_lossy())?;
+        shell::set_env_var_after_exit("PATH", &new_path.to_string_lossy())?;
+        shell::set_env_var_after_exit(&self.home(), &self.path().to_string_lossy())?;
         Ok(())
     }
 
@@ -153,6 +175,10 @@ impl ToolVersion {
             Err(_) => false
         }
     }
+}
+
+pub fn home_env(tool: &str) -> String {
+    format!("{}_HOME", tool.to_uppercase())
 }
 
 #[cfg(unix)]

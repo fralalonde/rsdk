@@ -15,7 +15,7 @@ set -l rsdk_bin $rsdk_home/bin
 mkdir -p $rsdk_bin
 set -l rsdk_bin_exe "$rsdk_bin/rsdk"
 echo "Copy $rsdk_exe to $rsdk_bin_exe"
-if test -f $rsdk_bin_exe 
+if test -f $rsdk_bin_exe
     rm $rsdk_bin_exe
 end
 cp $rsdk_exe $rsdk_bin_exe
@@ -24,15 +24,14 @@ set -l rsdk_exe "$rsdk_bin_exe"
 # Install functions
 set -l fish_plugin_dir ~/.config/fish/functions
 mkdir -p $fish_plugin_dir
-echo "Generate $fish_plugin_dir/rsdk.fish using rsdk path $rsdk_exe"
-cat templates/fish/rsdk.fish | sed "s|PUT_RSDK_PATH_HERE|$rsdk_exe|g" > $fish_plugin_dir/rsdk.fish
+echo "Generate $fish_plugin_dir/rsdk.fish using rsdk path $rsdk_bin_exe"
+cat templates/fish/rsdk.fish | sed "s|PUT_RSDK_PATH_HERE|$rsdk_bin_exe|g" > $fish_plugin_dir/rsdk.fish
 
 # Install plugin
 set -l fish_conf_dir ~/.config/fish/conf.d
 mkdir -p $fish_conf_dir
 cp templates/fish/rsdk_plugin.fish $fish_conf_dir
-
-echo "Installed rsdk fish plugin"
+echo "Installed fish plugin in $fish_conf_dir"
 
 # Initialize and refresh rsdk in session
 rsdk init
