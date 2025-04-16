@@ -4,7 +4,7 @@ use log::{debug, warn};
 use crate::{args, tool_version};
 use std::io::Write;
 use std::path::PathBuf;
-use anyhow::bail;
+use eyre::{anyhow, bail};
 
 pub fn set_env_var_after_exit(name: &str, value: &str) -> io::Result<()> {
     if let Some(shell) = args::shell() {
@@ -36,11 +36,11 @@ pub fn set_env_var_after_exit(name: &str, value: &str) -> io::Result<()> {
     Ok(())
 }
 
-pub fn current_tool_version(tool: &str) -> anyhow::Result<String> {
+pub fn current_tool_version(tool: &str) -> color_eyre::Result<String> {
     let env_home = tool_version::home_env(tool);
     let current_path = env::var(&env_home)
         .map(PathBuf::from)
-        .map_err(|_| anyhow::anyhow!("No environment variable '{env_home}' found for tool '{tool}'"))?;
+        .map_err(|_| anyhow!("No environment variable '{env_home}' found for tool '{tool}'"))?;
 
     if !current_path.exists() {
         bail!("Path '{:?}' (from env '{env_home}') does not exist", current_path);
@@ -51,7 +51,7 @@ pub fn current_tool_version(tool: &str) -> anyhow::Result<String> {
 
     let version = current_path
         .file_name()
-        .ok_or_else(|| anyhow::anyhow!("Path '{:?}' (from env '{env_home}') is empty", current_path))?
+        .ok_or_else(|| anyhow!("Path '{:?}' (from env '{env_home}') is empty", current_path))?
         .to_string_lossy()
         .into_owned();
 

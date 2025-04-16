@@ -2,14 +2,14 @@ use std::fs::{create_dir_all};
 use std::fmt::{Display, Formatter};
 use std::{env, fs};
 use std::path::{Path, PathBuf};
-use anyhow::{bail};
+use eyre::{bail};
 use log::{debug};
 use symlink::remove_symlink_dir;
 use crate::{sdkman_client, shell};
-use crate::rsdk_home_dir::RsdkHomeDir;
+use crate::rsdk_home::RsdkHome;
 
 use crate::cache::CacheEntry;
-use crate::archive_extract::{extract_tgz, extract_zip};
+use crate::archive::{extract_tgz, extract_zip};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -19,7 +19,7 @@ use std::{io};
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct ToolVersion {
-    rsdk: RsdkHomeDir,
+    rsdk: RsdkHome,
     pub tool: String,
     pub version: String,
 }
@@ -31,7 +31,7 @@ impl Display for ToolVersion {
 }
 
 impl ToolVersion {
-    pub fn new(dir: &RsdkHomeDir, tool: &str, version: &str) -> ToolVersion {
+    pub fn new(dir: &RsdkHome, tool: &str, version: &str) -> ToolVersion {
         ToolVersion {
             rsdk: dir.clone(),
             tool: tool.to_string(),
@@ -51,7 +51,7 @@ impl ToolVersion {
         home_env(&self.tool)
     }
 
-    pub fn install(home: &RsdkHomeDir, tool: &String, version : &Option<String>) -> anyhow::Result<(ToolVersion, bool)> {
+    pub fn install(home: &RsdkHome, tool: &String, version : &Option<String>) -> color_eyre::Result<(ToolVersion, bool)> {
         let api = sdkman_client::SdkManClient::new(&home.cache());
         let version = match version {
             None => api.get_default_version(tool)?,
@@ -73,7 +73,7 @@ impl ToolVersion {
         Ok((tv, true))
     }
 
-    fn install_from_file(&self, archive: &CacheEntry, work_dir: &Path, force: bool) -> anyhow::Result<()> {
+    fn install_from_file(&self, archive: &CacheEntry, work_dir: &Path, force: bool) -> color_eyre::Result<()> {
         if let Err(e) = extract_zip(&archive.file_path(), work_dir) {
             debug!("file is not a zip: {:?}", e);
             if let Err(e) = extract_tgz(&archive.file_path(), work_dir) {
@@ -121,7 +121,7 @@ impl ToolVersion {
         Ok(())
     }
 
-    pub fn uninstall(&self) -> anyhow::Result<()> {
+    pub fn uninstall(&self) -> color_eyre::Result<()> {
         let target_dir = self.path();
         debug!("deleting dir {:?}", target_dir);
         if !target_dir.exists() {
@@ -132,7 +132,7 @@ impl ToolVersion {
         Ok(fs::remove_dir_all(target_dir)?)
     }
 
-    pub fn make_default(&self) -> anyhow::Result<()> {
+    pub fn make_default(&self) -> color_eyre::Result<()> {
         let default_symlink_path = self.rsdk.default_symlink_path(&self.tool);
         if let Ok(target) = fs::read_link(&default_symlink_path) {
             debug!("removing previous symlink {:?} to {:?}", default_symlink_path, target);
@@ -142,7 +142,7 @@ impl ToolVersion {
         Ok(symlink::symlink_dir(self.path(), default_symlink_path)?)
     }
 
-    pub fn make_current(&self) -> anyhow::Result<()> {
+    pub fn make_current(&self) -> color_eyre::Result<()> {
         let any_active = self.rsdk.tool_dir(&self.tool);
         let path = env::var_os("PATH").unwrap_or_default();
 

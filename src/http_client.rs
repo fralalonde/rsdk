@@ -1,4 +1,5 @@
-use anyhow::{Context, Result};
+use eyre::{Context, ContextCompat};
+use color_eyre::{Result};
 use log::debug;
 use reqwest::blocking::Client;
 use reqwest::header;

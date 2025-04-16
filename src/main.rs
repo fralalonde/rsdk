@@ -1,5 +1,5 @@
 mod sdkman_client;
-mod rsdk_home_dir;
+mod rsdk_home;
 mod tool_version;
 mod shell;
 mod http_client;
@@ -7,100 +7,24 @@ mod args;
 mod http_utils;
 mod cache;
 mod sdkman_decode;
-mod archive_extract;
+mod archive;
 mod rcfile;
+mod tui;
 
 use std::{env, fs, io};
 use std::io::Write;
-use anyhow::bail;
-use clap::{CommandFactory, Parser, Subcommand};
+use eyre::bail;
+use clap::{CommandFactory, Parser};
 use log::{debug};
-use crate::args::{Cli, ARGS};
+use crate::args::{Cli, Command, EnvSubcommand, ARGS};
 use crate::tool_version::ToolVersion;
-
-/// Subcommands enum
-#[derive(Subcommand, Clone)]
-enum Command {
-    #[command(about = "Initialize rsdk in current shell")]
-    Init,
-
-    #[command(about = "Display help")]
-    Help,
-
-    #[command(about = "Download and install a tool")]
-    Install {
-        tool: String,
-        version: Option<String>,
-        #[arg(short, long)]
-        default: bool,
-    },
-
-    #[command(about = "Uninstall a specific version of a tool")]
-    Uninstall {
-        tool: String,
-        version: String,
-    },
-
-    #[command(about = "Alias for uninstall")]
-    Remove {
-        tool: String,
-        version: String,
-    },
-
-    #[command(about = "Show the currently active version of a tool")]
-    Current {
-        tool: Option<String>,
-    },
-
-    #[command(about = "Manage tool-specific environment variables")]
-    Env {
-        #[command(subcommand)]
-        command: Option<EnvSubcommand>,
-    },
-
-    #[command(about = "List available tools or versions")]
-    List {
-        tool: Option<String>,
-    },
-
-    #[command(about = "List installed tools or versions")]
-    Installed {
-        tool: Option<String>,
-    },
-
-    #[command(about = "Set or show the default version for a tool")]
-    Default {
-        tool: Option<String>,
-        version: Option<String>,
-    },
-
-    #[command(about = "Temporarily use a specific tool version")]
-    Use {
-        tool: String,
-        version: Option<String>,
-    },
-
-    #[command(about = "Flush internal caches")]
-    Flush {},
-}
-
-#[derive(Subcommand, Clone)]
-enum EnvSubcommand {
-    #[command(about = "Save current tool versions to env")]
-    Init,
-
-    #[command(about = "Install a tool in env or change its version")]
-    Install,
-
-    #[command(about = "Revert current tools to default version (env is untouched)")]
-    Clear,
-}
+use crate::tui::App;
 
 const RUST_LOG: &str = "RUST_LOG";
 const RUST_BACKTRACE: &str = "RUST_BACKTRACE";
 
 #[allow(clippy::collapsible_else_if)]
-fn main() -> anyhow::Result<()> {
+fn main() -> color_eyre::Result<()> {
     let cli = Cli::parse();
     let _ = ARGS.set(cli.clone());
 
@@ -113,7 +37,7 @@ fn main() -> anyhow::Result<()> {
 
     env_logger::init();
 
-    let rsdk_home = rsdk_home_dir::RsdkHomeDir::new()?;
+    let rsdk_home = rsdk_home::RsdkHome::new()?;
 
     match &cli.command.unwrap_or(Command::Help) {
         Command::Help => {
@@ -283,6 +207,18 @@ fn main() -> anyhow::Result<()> {
             println!("Flushing cache");
             fs::remove_dir_all(rsdk_home.cache())?;
             fs::create_dir_all(rsdk_home.cache())?
+        }
+        Command::Tui => {
+            color_eyre::install()?;
+            let mut terminal = tui::init()?;
+            let app_result = App::default().run(&mut terminal);
+            if let Err(err) = tui::restore() {
+                eprintln!(
+                    "failed to restore terminal. Run `reset` or restart your terminal to recover: {}",
+                    err
+                );
+            }
+            app_result?
         }
     }
     Ok(())

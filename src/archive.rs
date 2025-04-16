@@ -7,7 +7,7 @@ use log::debug;
 use tar::Archive;
 use zip::ZipArchive;
 
-pub fn extract_tgz(file: &Path, work_dir: &Path) -> anyhow::Result<()> {
+pub fn extract_tgz(file: &Path, work_dir: &Path) -> color_eyre::Result<()> {
     let archive_file = File::open(file)?;
     let input = BufReader::new(archive_file);
 
@@ -24,7 +24,7 @@ pub fn extract_tgz(file: &Path, work_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn extract_zip(file: &Path, work_dir: &Path) -> anyhow::Result<()> {
+pub fn extract_zip(file: &Path, work_dir: &Path) -> color_eyre::Result<()> {
     debug!("unzipping");
     let archive_file = File::open(file)?;
     let mut archive = ZipArchive::new(archive_file)?;

@@ -1,6 +1,6 @@
 use std::path::{Path};
 use std::str;
-use anyhow::{Result};
+use color_eyre::{Result};
 use crate::sdkman_decode::{decode_java_versions, decode_versions};
 use crate::cache::{CacheEntry};
 use crate::http_client::{CachedHttpClient};

@@ -5,18 +5,18 @@ use directories::UserDirs;
 use crate::tool_version::ToolVersion;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct RsdkHomeDir {
+pub struct RsdkHome {
     pub root: PathBuf,
 }
 
-impl RsdkHomeDir {
-    pub fn new() -> io::Result<RsdkHomeDir> {
+impl RsdkHome {
+    pub fn new() -> io::Result<RsdkHome> {
         let user_dirs = UserDirs::new().expect("Failed to get user directories");
         let home_dir = user_dirs.home_dir();
 
         let rsdk_dir = home_dir.join(".rsdk");
 
-        let rsdk = RsdkHomeDir { root: rsdk_dir.to_path_buf() };
+        let rsdk = RsdkHome { root: rsdk_dir.to_path_buf() };
         create_dir_all(rsdk.tools())?;
         create_dir_all(rsdk.cache())?;
         create_dir_all(rsdk.temp())?;
@@ -29,26 +29,26 @@ impl RsdkHomeDir {
     }
 
     #[allow(unused)]
-    pub fn default_version(&self, tool: &str) -> anyhow::Result<Option<ToolVersion>> {
+    pub fn default_version(&self, tool: &str) -> color_eyre::Result<Option<ToolVersion>> {
         Ok(self
             .installed_versions(tool)?
             .find(|version| version.is_default()))
     }
 
-    pub fn installed_versions<'a>(&'a self, tool: &'a str) -> anyhow::Result<impl Iterator<Item=ToolVersion> + 'a> {
+    pub fn installed_versions<'a>(&'a self, tool: &'a str) -> color_eyre::Result<impl Iterator<Item=ToolVersion> + 'a> {
         Ok(self
             .all_installed()?
             .filter(|version| version.tool.eq(tool)))
     }
 
     /// Used at init time
-    pub fn all_defaults(&self) -> anyhow::Result<impl Iterator<Item=ToolVersion> + '_> {
+    pub fn all_defaults(&self) -> color_eyre::Result<impl Iterator<Item=ToolVersion> + '_> {
         Ok(self
             .all_installed()?
             .filter(|version| version.is_default()))
     }
 
-    pub fn all_installed(&self) -> anyhow::Result<impl Iterator<Item=ToolVersion> + '_> {
+    pub fn all_installed(&self) -> color_eyre::Result<impl Iterator<Item=ToolVersion> + '_> {
         let tools_dir = self.tools();
 
         let tool_iter = fs::read_dir(tools_dir)?
