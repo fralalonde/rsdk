@@ -2,7 +2,7 @@
 
 # Build the executable
 if test "$argv[1]" = "--debug"
-    cargo build
+    cargo +nightly build
     set rsdk_exe "target/debug/rsdk"
 else
     cargo build --release

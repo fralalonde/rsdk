@@ -11,9 +11,13 @@ type Sdkmanrc = HashMap<String, String>;
 
 pub fn env_apply(home: &RsdkHomeDir) -> anyhow::Result<()> {
     if let Some(sdkmanrc) = load()? {
+        for tv in &sdkmanrc {
+            if !ToolVersion::new(home, &tv.0, &tv.1).is_installed() {
+                bail!("Tool {} version {} is not installed, run 'rsdk env install' first.", tv.0, tv.1)
+            }
+        }
         for tv in sdkmanrc {
-            let (ntv, _) = ToolVersion::install(home, &tv.0, &Some(tv.1))?;
-            ntv.make_current()?;
+            ToolVersion::new(home, &tv.0, &tv.1).make_current()?;
         }
     } else {
         bail!("no .sdkmanrc file found in current directory.")
@@ -25,18 +29,19 @@ pub fn env_init(home: &RsdkHomeDir) -> anyhow::Result<()> {
     let mut kv = HashMap::new();
     for tv in home.all_installed()? {
         if tv.is_current() {
-            println!("Pinning {:?}", tv);
             kv.insert(tv.tool, tv.version);
         }
     }
     save(kv)
 }
 
-pub fn env_install(home: &RsdkHomeDir, tool: &String, version: &Option<String>) -> anyhow::Result<()> {
-    let mut sdkmanrc = load()?.unwrap_or(Sdkmanrc::new());
-    let (tv, _) = ToolVersion::install(home, tool, version)?;
-    sdkmanrc.insert(tv.tool, tv.version);
-    save(sdkmanrc)
+pub fn env_install(home: &RsdkHomeDir) -> anyhow::Result<()> {
+    if let Some(sdkmanrc) = load()? {
+        for tv in sdkmanrc {
+            ToolVersion::install(home, &tv.0, &Some(tv.1))?;
+        }
+    }
+    Ok(())
 }
 
 pub fn env_clear(home: &RsdkHomeDir) -> anyhow::Result<()> {

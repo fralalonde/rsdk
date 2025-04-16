@@ -49,7 +49,7 @@ enum Command {
 
     #[command(about = "Show the currently active version of a tool")]
     Current {
-        tool: String,
+        tool: Option<String>,
     },
 
     #[command(about = "Manage tool-specific environment variables")]
@@ -70,7 +70,7 @@ enum Command {
 
     #[command(about = "Set or show the default version for a tool")]
     Default {
-        tool: String,
+        tool: Option<String>,
         version: Option<String>,
     },
 
@@ -87,16 +87,13 @@ enum Command {
 #[derive(Subcommand, Clone)]
 enum EnvSubcommand {
     #[command(about = "Save current tool versions to env")]
-    Init {},
+    Init,
 
     #[command(about = "Install a tool in env or change its version")]
-    Install {
-        name: String,
-        value: Option<String>,
-    },
+    Install,
 
     #[command(about = "Revert current tools to default version (env is untouched)")]
-    Clear {},
+    Clear,
 }
 
 const RUST_LOG: &str = "RUST_LOG";
@@ -220,44 +217,54 @@ fn main() -> anyhow::Result<()> {
         Command::Env { command } => {
             if let Some(command) = command {
                 match command {
-                    EnvSubcommand::Init {} => {
-                        rcfile::env_init(&rsdk_home)?;
-                    }
-                    EnvSubcommand::Install { name, value } => {
-                        rcfile::env_install(&rsdk_home, name, value)?;
-                    }
-                    EnvSubcommand::Clear {} => {
-                        rcfile::env_clear(&rsdk_home)?;
-                    }
+                    EnvSubcommand::Init => rcfile::env_init(&rsdk_home)?,
+                    EnvSubcommand::Install => rcfile::env_install(&rsdk_home)?,
+                    EnvSubcommand::Clear => rcfile::env_clear(&rsdk_home)?,
                 }
             } else {
                 rcfile::env_apply(&rsdk_home)?;
             }
         }
         Command::Default { tool, version } => {
-            if let Some(version) = version {
-                let cv = ToolVersion::new(&rsdk_home, tool, version);
-                if cv.is_installed() {
-                    cv.make_default()?
+            if let Some(tool) = tool {
+                if let Some(version) = version {
+                    let cv = ToolVersion::new(&rsdk_home, tool, version);
+                    if cv.is_installed() {
+                        cv.make_default()?
+                    } else {
+                        bail!("tool '{cv}' is not installed")
+                    }
                 } else {
-                    eprintln!("tool '{cv}' is not installed")
+                    if let Some(version) = rsdk_home.default_version(tool)? {
+                        println!("{:?}", version);
+                    } else {
+                        bail!("no default version set for tool '{}'", tool);
+                    }
                 }
             } else {
-                if let Some(version) = rsdk_home.default_version(tool)? {
-                    println!("{:?}", version);
-                } else {
-                    bail!("no default version set for tool '{}'", tool);
+                for tv in rsdk_home.all_installed()? {
+                    if tv.is_default() {
+                        println!("{tv}");
+                    }
                 }
             }
         }
         Command::Current { tool } => {
-            for tv in rsdk_home.all_installed()? {
-                if tv.tool.eq(tool) && tv.is_current() {
-                    println!("{tv}");
-                    return Ok(());
+            if let Some(tool) = tool {
+                for tv in rsdk_home.all_installed()? {
+                    if tv.tool.eq(tool) && tv.is_current() {
+                        println!("{tv}");
+                        return Ok(());
+                    }
+                }
+                bail!("no current version of tool '{}'", tool);
+            } else {
+                for tv in rsdk_home.all_installed()? {
+                    if tv.is_current() {
+                        println!("{tv}");
+                    }
                 }
             }
-            bail!("no current version of tool '{}'", tool);
         }
         Command::Use { tool, version } => {
             if let Some(version) = version {
