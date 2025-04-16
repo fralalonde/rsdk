@@ -6,7 +6,6 @@ use color_eyre::{
 use crossterm::{event, execute};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
-use ratatui::{DefaultTerminal, Frame};
 use ratatui::prelude::*;
 use ratatui::symbols::*;
 use ratatui::widgets::*;
@@ -42,7 +41,6 @@ pub struct App {
 }
 
 impl App {
-
     /// runs the application's main loop until the user quits
     pub fn run(&mut self, terminal: &mut Tui) -> Result<()> {
         while !self.exit {
@@ -61,9 +59,10 @@ impl App {
         match event::read()? {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => self
-                .handle_key_event(key_event)
-                .wrap_err_with(|| format!("handling key event failed:\n{key_event:#?}")),
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                self.handle_key_event(key_event)
+                    .wrap_err_with(|| format!("handling key event failed:\n{key_event:#?}"))
+            }
             _ => Ok(()),
         }
     }

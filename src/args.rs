@@ -52,9 +52,6 @@ pub enum Command {
     #[command(about = "Initialize rsdk in current shell")]
     Init,
 
-    #[command(about = "Display help")]
-    Help,
-
     #[command(about = "Download and install a tool")]
     Install {
         tool: String,
