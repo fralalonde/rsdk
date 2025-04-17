@@ -22,6 +22,7 @@ template_src=templates/bash/rsdk.bash
 template_dst=$rsdk_bin/rsdk.bash
 
 cat $template_src | sed "s|PUT_RSDK_PATH_HERE|$rsdk_exe|g" > "$template_dst"
+chmod +x $template_dst
 
 # Output completion message
 echo "Installed rsdk bash to $rsdk_home"

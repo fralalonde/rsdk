@@ -1,19 +1,18 @@
 # Install PowerShell module locally
 param (
-    [Parameter(Mandatory = $false)]
-    [boolean]$Release = $false  # Default to debug mode if not specified
+    [switch]$Debug = $false  # Default to release mode if not specified
 )
 
 $ModuleName = "Rsdk"
 $SourceDirectory = "templates\\powershell"
 
 # Build the executable using cargo
-if ($Release) {
-    & cargo build --release
-    $ExePath = "target\\release\\rsdk.exe"
-} else {
+if ($Debug) {
     & cargo build
     $ExePath = "target\\debug\\rsdk.exe"
+} else {
+    & cargo build --release
+    $ExePath = "target\\release\\rsdk.exe"
 }
 
 # Get the PowerShell module path for the current user
