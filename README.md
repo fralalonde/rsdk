@@ -25,7 +25,7 @@ Because `rsdk` is a self-contained executable, it works the same everywhere and 
 This is because `rsdk` can not directly set the environment of the underlying shell session, 
 it prints out `set` commands to a temp file that is executed by the shell-specific wrapper scripts after `rsdk` exits.
 
-(If you know a better way to change the parent environement, _please let me know how!_.)
+(If you know a better way to change the parent environement, _please let me know how!_)
 
 ## Installation
 
@@ -57,21 +57,19 @@ Append ``--debug`` to any install script for a debug build - faster compile, bet
 ## Usage
 `rsdk` deals in `tools` and `versions`.
 
-Usage is mostly similar to `sdkman`.
+| Shell                        | Command Format                    | Examples                     |
+|------------------------------|-----------------------------------|------------------------------|
+| List available tools         | `rsdk list`                       |                              |
+| List available tool versions | `rsdk list <tool>`                | `rsdk list java`             |
+| Install default version      | `rsdk install <tool>`             | `rsdk install maven`         |
+| Install specific version     | `rsdk install <tool> <version>`   | `rsdk install maven 3.9.9`   |
+| Remove version               | `rsdk uninstall <tool> <version>` | `rsdk uninstall maven 3.9.9` |
+| Set default version          | `rsdk default <tool> <version>`   | `rsdk default maven 3.9.9`   |
+| Set active version           | `rsdk use <tool> <version>`       | `rsdk use maven 3.9.9`       |
+| Flush downloads cache        | `rsdk flush`                      |                              |
+| Show help                    | `rsdk --help`                     |                              |
 
-| Shell                        | Command Format                      | Examples                                                  |
-|------------------------------|-------------------------------------|-----------------------------------------------------------|
-| List available tools         | ``rsdk` list`                       |                                                           |
-| List available tool versions | ``rsdk` list <tool>`                | ``rsdk` list java`                                        |
-| Install default version      | ``rsdk` install <tool>`             | ``rsdk` install maven`                                    |
-| Install specific version     | ``rsdk` install <tool> <version>`   | ``rsdk` install maven 3.9.9`<br/>``rsdk` install java 23-tem` |
-| Remove version               | ``rsdk` uninstall <tool> <version>` | ``rsdk` uninstall maven 3.9.9`                              |
-| Set default version          | ``rsdk` default <tool> <version>`   | ``rsdk` default maven 3.9.9`                                |
-| Set active version           | ``rsdk` use <tool> <version>`       | ``rsdk` use maven 3.9.9`                                    |
-| Flush entire cache           | ``rsdk` flush`                      |                                                           |
-| Show help                    | ``rsdk` --help`                     |                                                           |
-
-Running with ```rsdk` --debug`` enables verbose output and stack traces (equivalent of `RUST_BACKTRACE=1` and `RUST_LOG=debug`).  
+Running with `--debug` enables verbose output and stack traces (equivalent of `RUST_BACKTRACE=1` and `RUST_LOG=debug`).  
 
 ## Network options
 
