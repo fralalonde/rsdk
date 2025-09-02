@@ -1,46 +1,39 @@
 # `rsdk` - Native JVM tools manager
 
-`rsdk` is a native command-line JVM tool manager.
+`rsdk` is a from-scratch rewrite of the otherwise excellent [SDKMAN](https://sdkman.io/) JVM tool manager. 
 
-It is an _alternative_ front-end to the excellent [SDKMAN](https://sdkman.io/).
+The problem with SDKMAN is that it's made mostly of bash scripts, limiting its portability to other shells and non-Unix OS.
 
-## Differences from SDKMAN!
+Because `rsdk` is a self-contained executable, it works the same everywhere and does not require additonal plugins or packages to be installed.
 
-`rsdk` is self contained and does not require curl or zip to be installed.
+`rsdk` integrates with bash, zsh, **powershell**, and **fish** shells, on Windows, Linux and Mac.
 
-`rsdk` integrates natively with bash, zsh, **powershell**, and **fish** shells (without plugins required)
+`rsdk` is does not require curl, zip or any other package to run.
 
-`rsdk` may have limited functionality (no offline mode, etc.) and minor variations in features or behavior.
+`rsdk` is an alternative _client_, it still relies on SDKMAN indexes and downloads.
 
-## Motivation
+`rsdk` does not try to replicate all of SDKMAN:
 
-My main shells are PowerShell and fish:
+ - no offline mode
+ - some commands are different
+ - tools are installed in the `~/.rsdk/tools` folder
 
-- The PowerShell version of sdkman kept tripping up on file operations, maybe because of Defender
-- Fish integration requires installing a third-party plugin which I find suboptimal.
+## The "Dirty" Trick
 
-`rsdk` is a 100% original Rust re-implementation of the sdkman CLI.
-I only discovered that sdkman CLI actually uses Rust apps for some operations after I was done writing RSDK.
+`rsdk` uses shell-specific wrappers that delegate operations to the binary.
 
-## Design
+This is because `rsdk` can not directly set the environment of the underlying shell session, 
+it prints out `set` commands to a temp file that is executed by the shell-specific wrapper scripts after `rsdk` exits.
 
-`rsdk` is a single binary application implementation of the sdkman CLI functionality.
-
-`rsdk` still totally relies on sdkman server infrastructure, packages, list and indexes. 
-
-`rsdk` uses minimal shell wrappers that delegate _all_ operations to the binary.
-
-`rsdk` can not directly set the environment of the current shell session. 
-it prints out `set` commands to a temp file that is sourced by the shell wrapper after `rsdk` exits.
-
-## Disclaimer
-**`rsdk` is beta quality and may spuriously eat your dog even if you didn't have one.**
+(If you know a better way to change the parent environement, _please let me know how!_.)
 
 ## Installation
 
-Installing from source is the only way for now (TODO [package managers](https://github.com/fralalonde/rsdk/issues/6)).
+Unfortunately, installing `rsdk` from source is the only way for now (TODO [package managers](https://github.com/fralalonde/rsdk/issues/6)).
 
-`rsdk` is based on a compiled program. Installing from source requires [Rust to be installed](https://www.rust-lang.org/tools/install)
+Because `rsdk` is compiled, installing it requires [Rust to be installed](https://www.rust-lang.org/tools/install). 
+
+(I know I said that `rsdk` didn't need other stuff to be installed first. I lied.)
 
 ### Clone the repo
 
@@ -66,11 +59,11 @@ Append ``--debug`` to any install script for a debug build - faster compile, bet
 
 Usage is mostly similar to `sdkman`.
 
-| Shell                        | Command Format                    | Examples                                                  |
-|------------------------------|-----------------------------------|-----------------------------------------------------------|
+| Shell                        | Command Format                      | Examples                                                  |
+|------------------------------|-------------------------------------|-----------------------------------------------------------|
 | List available tools         | ``rsdk` list`                       |                                                           |
-| List available tool versions | ``rsdk` list <tool>`                | ``rsdk` list java`                                          |
-| Install default version      | ``rsdk` install <tool>`             | ``rsdk` install maven`                                      |
+| List available tool versions | ``rsdk` list <tool>`                | ``rsdk` list java`                                        |
+| Install default version      | ``rsdk` install <tool>`             | ``rsdk` install maven`                                    |
 | Install specific version     | ``rsdk` install <tool> <version>`   | ``rsdk` install maven 3.9.9`<br/>``rsdk` install java 23-tem` |
 | Remove version               | ``rsdk` uninstall <tool> <version>` | ``rsdk` uninstall maven 3.9.9`                              |
 | Set default version          | ``rsdk` default <tool> <version>`   | ``rsdk` default maven 3.9.9`                                |
@@ -78,9 +71,9 @@ Usage is mostly similar to `sdkman`.
 | Flush entire cache           | ``rsdk` flush`                      |                                                           |
 | Show help                    | ``rsdk` --help`                     |                                                           |
 
-Running with ```rsdk` --debug``  will enable verbose output and stack traces (equivalent of `RUST_BACKTRACE=1` and `RUST_LOG=debug`).  
+Running with ```rsdk` --debug`` enables verbose output and stack traces (equivalent of `RUST_BACKTRACE=1` and `RUST_LOG=debug`).  
 
-## Network settings
+## Network options
 
 If proxying is required, ``rsdk`` honors the `http_proxy` and `https_proxy` environment variables (same as curl).
 
@@ -99,5 +92,3 @@ Alternative shells may require a bit more work to support but are welcome too.
 See [issues](https://github.com/fralalonde/rsdk/issues) for a list of planned features.
 
 This is a fun-only project.
-
-## Thanks
