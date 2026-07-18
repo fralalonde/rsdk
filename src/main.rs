@@ -123,14 +123,18 @@ fn main() -> color_eyre::Result<()> {
                 }
             }
             Command::Installed { tool } => {
-                for tv in rsdk_home.all_installed()? {
-                    if let Some(tool) = tool {
-                        if tv.tool.eq(tool) {
-                            println!("{tv}");
-                        }
-                    } else {
-                        println!("{tv}");
-                    }
+                let mut installed: Vec<ToolVersion> = rsdk_home
+                    .all_installed()?
+                    .filter(|tv| tool.as_ref().is_none_or(|t| tv.tool.eq(t)))
+                    .collect();
+                installed.sort_by(|a, b| a.tool.cmp(&b.tool).then(a.version.cmp(&b.version)));
+
+                // Mark the current version with `*` and align the version column
+                // by padding tool names to the widest (like sdkman).
+                let width = installed.iter().map(|tv| tv.tool.len()).max().unwrap_or(0);
+                for tv in &installed {
+                    let marker = if tv.is_current() { "*" } else { " " };
+                    println!("{marker} {:width$} {}", tv.tool, tv.version, width = width);
                 }
             }
             Command::Env { command } => {
