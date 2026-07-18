@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'  # Trigger on version tags like v1.0.0, v2.1.3, etc.
 
+env:
+  release_version: ${{ github.ref_name }}
+
 jobs:
   build-rsdk:
     strategy:
@@ -47,32 +50,74 @@ jobs:
         run: |
           cargo build --release
 
-      - name: Powershell templates
+      - name: Package for Windows
         if: ${{ matrix.config.os == 'windows' }}
         run: |
-          $Source = "templates\\powershell"
-          $Destination = "target\\dist\\powershell"
-          & build\windows\Module-Template.ps1 -SourceDir $Source -DestinationDir $Destination -ExePath "rsdk.exe"
+          $ReleaseDir = "release"
+          New-Item -ItemType Directory -Force -Path $ReleaseDir
+          $PowershellSource = "templates\powershell"
+          $PowershellDest = "$ReleaseDir\powershell"
+          & build\windows\Module-Template.ps1 -SourceDir $PowershellSource -DestinationDir $PowershellDest -ExePath "rsdk.exe"
+          Copy-Item "target\release\rsdk.exe" "$ReleaseDir\rsdk.exe"
+          $ArchiveName = "rsdk-${{ env.release_version }}-${{ matrix.config.rust_target }}.zip"
+          Compress-Archive -Path "$ReleaseDir\*" -DestinationPath $ArchiveName
+          Write-Host "Created $ArchiveName"
         shell: pwsh
 
-      - name: Windows EXE
-        if: ${{ matrix.config.os == 'windows' }}
-        run: |
-          $Source = "target\\release\\rsdk.exe"
-          $Destination = "target\\dist\\rsdk.exe"
-          Move-Item -Path $Source -Destination $Destination -Force
-        shell: pwsh
-
-      - name: Unix files packaging
+      - name: Package for Unix
         if: ${{ matrix.config.os == 'linux' || matrix.config.os == 'mac' }}
         run: |
-          bash build/unix/generate-plugin.sh templates/bash target/dist/bash rsdk
-          bash build/unix/generate-plugin.sh templates/fish target/dist/fish rsdk
-          mv target/release/rsdk target/dist
-        shell: bash
+          set -e
+          RELEASE_DIR="release"
+          mkdir -p "$RELEASE_DIR"
+          
+          # Generate shell wrappers
+          bash build/unix/generate-plugin.sh templates/bash "$RELEASE_DIR/bash" rsdk
+          bash build/unix/generate-plugin.sh templates/fish "$RELEASE_DIR/fish" rsdk
+          bash build/unix/generate-plugin.sh templates/zsh "$RELEASE_DIR/zsh" rsdk 2>/dev/null || true
+          
+          # Copy binary
+          cp target/release/rsdk "$RELEASE_DIR/rsdk"
+          
+          # Create tarball
+          ARCHIVE_NAME="rsdk-${{ env.release_version }}-${{ matrix.config.rust_target }}.tar.gz"
+          tar -czf "$ARCHIVE_NAME" -C "$RELEASE_DIR" .
+          echo "Created $ARCHIVE_NAME"
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rsdk-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.ref_name }}
-          path: target/dist
+          path: |
+            rsdk-*.zip
+            rsdk-*.tar.gz
+
+  release:
+    name: Create Release
+    needs: build-rsdk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/**/*.zip
+            artifacts/**/*.tar.gz
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
