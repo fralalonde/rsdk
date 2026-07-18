@@ -33,6 +33,20 @@ I only discovered that sdkman CLI actually uses Rust apps for some operations af
 `rsdk` can not directly set the environment of the current shell session. 
 it prints out `set` commands to a temp file that is sourced by the shell wrapper after `rsdk` exits.
 
+## How version switching works
+
+Like SDKMAN, `rsdk` tracks the **active** version of each tool with a `current`
+symlink at `~/.rsdk/tools/<tool>/current` pointing at the selected version, and
+the **default** version with a `default` symlink.
+
+`rsdk init` adds each default tool's stable `…/<tool>/current/bin` directory to
+`PATH` (once) and sets the tool's `*_HOME` variable. Because `PATH` points at the
+`current` symlink, `rsdk use`, `rsdk env`, and `rsdk env clear` only need to flip
+that symlink and update `*_HOME` — `PATH` is never rewritten after `init`.
+
+This means the active version survives across shells and new terminal sessions
+(the symlink is on disk, not in one shell's environment).
+
 ## Disclaimer
 **`rsdk` is beta quality and may spuriously eat your dog even if you didn't have one.**
 
@@ -75,8 +89,15 @@ Usage is mostly similar to `sdkman`.
 | Remove version               | ``rsdk` uninstall <tool> <version>` | ``rsdk` uninstall maven 3.9.9`                              |
 | Set default version          | ``rsdk` default <tool> <version>`   | ``rsdk` default maven 3.9.9`                                |
 | Set active version           | ``rsdk` use <tool> <version>`       | ``rsdk` use maven 3.9.9`                                    |
+| Save env to `.sdkmanrc`      | ``rsdk` env init`                   |                                                             |
+| Apply `.sdkmanrc` env        | ``rsdk` env`                        |                                                             |
+| Install `.sdkmanrc` tools    | ``rsdk` env install`                |                                                             |
+| Revert env to defaults       | ``rsdk` env clear`                  |                                                             |
 | Flush entire cache           | ``rsdk` flush`                      |                                                           |
 | Show help                    | ``rsdk` --help`                     |                                                           |
+
+Running ``rsdk` use <tool> <version>`` for a version that isn't installed will
+offer to install it first (like SDKMAN), then make it current.
 
 Running with ```rsdk` --debug``  will enable verbose output and stack traces (equivalent of `RUST_BACKTRACE=1` and `RUST_LOG=debug`).  
 

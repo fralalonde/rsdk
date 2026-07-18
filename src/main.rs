@@ -1,14 +1,3 @@
-mod sdkman_client;
-mod rsdk_home;
-mod tool_version;
-mod shell;
-mod http_client;
-mod args;
-mod http_utils;
-mod cache;
-mod sdkman_decode;
-mod archive;
-mod rcfile;
 mod tui;
 
 use std::{env, fs, io};
@@ -16,8 +5,8 @@ use std::io::Write;
 use eyre::bail;
 use clap::{CommandFactory, Parser};
 use log::{debug};
-use crate::args::{Cli, Command, EnvSubcommand, ARGS};
-use crate::tool_version::ToolVersion;
+use rsdk::args::{Cli, Command, EnvSubcommand, ARGS};
+use rsdk::{args, rcfile, rsdk_home, shell, sdkman_client, tool_version::ToolVersion};
 use crate::tui::App;
 
 const RUST_LOG: &str = "RUST_LOG";
@@ -45,17 +34,21 @@ fn main() -> color_eyre::Result<()> {
                 let default_tools = rsdk_home.all_defaults()?;
                 let mut paths = vec![];
 
-                // Append each default tool's `bin` directory to PATH
+                // Add each default tool's stable `current/bin` to PATH. The
+                // `current` symlink is what `use` / `env` flip, so PATH never
+                // needs to be rewritten after this (same model as SDKMAN).
                 for default_version in default_tools {
-                    // prepend default tools path to have precedence over system packages
-                    paths.push(default_version.bin());
+                    let current_bin = default_version.path().parent()
+                        .map(|tool_dir| tool_dir.join("current").join("bin"))
+                        .expect("tool version path has a tool dir parent");
+                    paths.push(current_bin);
                     debug!("setting env var {:?} to {:?}", default_version.home(), default_version.path());
                     shell::set_env_var_after_exit(&default_version.home(), &default_version.path().to_string_lossy())?;
                 }
 
                 let path = env::var_os("PATH").unwrap_or_default();
                 env::split_paths(&path)
-                    // cleanup any hardwired RSDK tools from PATH (how did it get there anyway?)
+                    // drop any rsdk-managed tool dirs already on PATH to avoid duplicates
                     .filter(|p| !p.starts_with(rsdk_home.tools()))
                     .for_each(|p| paths.push(p));
 
@@ -77,7 +70,7 @@ fn main() -> color_eyre::Result<()> {
                         tv.make_current()?;
                     }
                     _ => {
-                        if *default || ask_default(&tv.tool, &tv.version) {
+                        if *default || ask(&format!("Do you want to make {tool} {} the new default? (Y/n): ", tv.version), true) {
                             tv.make_default()?;
                             tv.make_current()?;
                         }
@@ -90,7 +83,10 @@ fn main() -> color_eyre::Result<()> {
             Command::Uninstall { tool, version } | Command::Remove { tool, version } => {
                 let cv = ToolVersion::new(&rsdk_home, tool, version);
 
-                if cv.is_default() {
+                let was_default = cv.is_default();
+                let was_current = cv.is_current();
+
+                if was_default {
                     debug!("deleting default symlink to deleted version");
                     fs::remove_file(rsdk_home.default_symlink_path(tool))?;
                 }
@@ -106,13 +102,15 @@ fn main() -> color_eyre::Result<()> {
                     }
                     _ => {
                         let new_cv = &vv[0];
-                        if cv.is_default() {
+                        if was_default {
                             new_cv.make_default()?;
                         }
-                        if cv.is_current() {
+                        if was_current {
                             new_cv.make_current()?;
                         }
-                        println!("{} version {} is the new default", new_cv.tool, new_cv.version)
+                        if was_default {
+                            println!("{} version {} is the new default", new_cv.tool, new_cv.version)
+                        }
                     }
                 }
             }
@@ -157,7 +155,7 @@ fn main() -> color_eyre::Result<()> {
                         }
                     } else {
                         if let Some(version) = rsdk_home.default_version(tool)? {
-                            println!("{:?}", version);
+                            println!("{version}");
                         } else {
                             bail!("no default version set for tool '{}'", tool);
                         }
@@ -172,16 +170,13 @@ fn main() -> color_eyre::Result<()> {
             }
             Command::Current { tool } => {
                 if let Some(tool) = tool {
-                    for tv in rsdk_home.all_installed()? {
-                        if tv.tool.eq(tool) && tv.is_current() {
-                            println!("{tv}");
-                            return Ok(());
-                        }
+                    match current_tv(&rsdk_home, tool)? {
+                        Some(tv) => println!("{tv}"),
+                        None => bail!("no current version of tool '{}'", tool),
                     }
-                    bail!("no current version of tool '{}'", tool);
                 } else {
-                    for tv in rsdk_home.all_installed()? {
-                        if tv.is_current() {
+                    for tool in installed_tools(&rsdk_home)? {
+                        if let Some(tv) = current_tv(&rsdk_home, &tool)? {
                             println!("{tv}");
                         }
                     }
@@ -193,11 +188,20 @@ fn main() -> color_eyre::Result<()> {
                     if tv.is_installed() {
                         tv.make_current()?;
                     } else {
-                        eprintln!("'tool {tv}' is not installed")
+                        // SDKMAN offers to install a missing version on `use`.
+                        if ask(&format!("{tool} {version} is not installed, install it now? (Y/n): "), true) {
+                            let (tv, _) = ToolVersion::install(&rsdk_home, tool, &Some(version.clone()))?;
+                            tv.make_current()?;
+                            println!("Installed {} {}", tv.tool, tv.version);
+                        } else {
+                            eprintln!("'{tool} {version}' is not installed");
+                        }
                     }
                 } else {
-                    let version = shell::current_tool_version(tool)?;
-                    println!("{:?}", version);
+                    match current_tv(&rsdk_home, tool)? {
+                        Some(tv) => println!("{tv}"),
+                        None => bail!("no current version of tool '{}'", tool),
+                    }
                 }
             }
             Command::Flush {} => {
@@ -225,16 +229,53 @@ fn main() -> color_eyre::Result<()> {
     Ok(())
 }
 
-pub fn ask_default(tool: &str, version: &str) -> bool {
-    print!("Do you want to make {tool} {version} the new default? (Y/n): ");
+/// Prompt the user with `prompt`, returning `default` when they just press
+/// enter or when input can't be read.
+pub fn ask(prompt: &str, default: bool) -> bool {
+    print!("{prompt}");
     io::stdout().flush().expect("Failed to flush stdout");
 
     let mut input = String::new();
     match io::stdin().read_line(&mut input) {
         Ok(_) => {
             let response = input.trim().to_lowercase();
-            response.is_empty() || matches!(response.as_str(), "y" | "yes")
+            if response.is_empty() {
+                default
+            } else {
+                matches!(response.as_str(), "y" | "yes")
+            }
         }
-        Err(_) => true,
+        Err(_) => default,
     }
+}
+
+/// Resolve the current version of `tool`, materializing the `current` symlink
+/// if it is missing (e.g. installs that predate the symlink model, where only
+/// `default` or `*_HOME` was set). Returns `None` if nothing is current.
+fn current_tv(home: &rsdk_home::RsdkHome, tool: &str) -> color_eyre::Result<Option<ToolVersion>> {
+    let Some(path) = home.resolve_current(tool) else {
+        return Ok(None);
+    };
+    let version = path
+        .file_name()
+        .map(|v| v.to_string_lossy().into_owned())
+        .expect("current version path has a version component");
+    let tv = ToolVersion::new(home, tool, &version);
+    // Converge legacy state onto the symlink model.
+    if !home.current_symlink_path(tool).exists() {
+        tv.make_current()?;
+    }
+    Ok(Some(tv))
+}
+
+/// Names of all tools that have at least one installed version.
+fn installed_tools(home: &rsdk_home::RsdkHome) -> color_eyre::Result<Vec<String>> {
+    let mut tools: Vec<String> = home
+        .all_installed()?
+        .map(|tv| tv.tool)
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    tools.sort();
+    Ok(tools)
 }

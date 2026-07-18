@@ -15,7 +15,9 @@ color-eyre = "0.6"
 indicatif = "0.17"
 sha = "1"
 md5 = "0.7"
-reqwest = { version = "0.12", features = ["blocking", "gzip"] }
+# Use rustls (pure-Rust TLS) instead of the default native-tls/openssl so the
+# binary stays self-contained and doesn't need system OpenSSL dev libraries.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "gzip", "rustls-tls"] }
 zip = "2"
 tar = "0.4"
 flate2 = "1"
@@ -28,6 +30,9 @@ serde = { version = "1.0.213", features = ["derive"] }
 
 crossterm = "0.28.1"
 ratatui = { version = "0.29", features = ["all-widgets"] }
+
+[dev-dependencies]
+uuid = { version = "1", features = ["v4"] }
 
 [profile.release]
 opt-level = "z"              # Optimize for binary size

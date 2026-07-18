@@ -38,10 +38,13 @@ pub fn env_init(home: &RsdkHome) -> color_eyre::Result<()> {
 pub fn env_install(home: &RsdkHome) -> color_eyre::Result<()> {
     if let Some(sdkmanrc) = load()? {
         for tv in sdkmanrc {
-            ToolVersion::install(home, &tv.0, &Some(tv.1))?;
+            let (installed, _) = ToolVersion::install(home, &tv.0, &Some(tv.1))?;
+            installed.make_current()?;
         }
+        Ok(())
+    } else {
+        bail!("no .sdkmanrc file found in current directory.")
     }
-    Ok(())
 }
 
 pub fn env_clear(home: &RsdkHome) -> color_eyre::Result<()> {

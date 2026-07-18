@@ -2,7 +2,7 @@ use fs::create_dir_all;
 use std::{fs, io};
 use std::path::{PathBuf};
 use directories::UserDirs;
-use crate::tool_version::ToolVersion;
+use crate::tool_version::{resolve_symlink, ToolVersion};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RsdkHome {
@@ -16,7 +16,13 @@ impl RsdkHome {
 
         let rsdk_dir = home_dir.join(".rsdk");
 
-        let rsdk = RsdkHome { root: rsdk_dir.to_path_buf() };
+        RsdkHome::at(rsdk_dir)
+    }
+
+    /// Create an `RsdkHome` rooted at an arbitrary directory. Used by tests to
+    /// avoid touching the real `~/.rsdk`.
+    pub fn at(rsdk_dir: PathBuf) -> io::Result<RsdkHome> {
+        let rsdk = RsdkHome { root: rsdk_dir };
         create_dir_all(rsdk.tools())?;
         create_dir_all(rsdk.cache())?;
         create_dir_all(rsdk.temp())?;
@@ -28,11 +34,40 @@ impl RsdkHome {
         self.tool_dir(tool).join("default")
     }
 
+    pub fn current_symlink_path(&self, tool: &str) -> PathBuf {
+        self.tool_dir(tool).join("current")
+    }
+
     #[allow(unused)]
     pub fn default_version(&self, tool: &str) -> color_eyre::Result<Option<ToolVersion>> {
         Ok(self
             .installed_versions(tool)?
             .find(|version| version.is_default()))
+    }
+
+    /// The version currently pointed at by the tool's `current` symlink, if any.
+    pub fn current_version(&self, tool: &str) -> color_eyre::Result<Option<ToolVersion>> {
+        Ok(self
+            .installed_versions(tool)?
+            .find(|version| version.is_current()))
+    }
+
+    /// Resolve the active version's install path for `tool`, in priority order:
+    /// the `current` symlink, then the `default` symlink, then the tool's
+    /// `*_HOME` environment variable. The last two cover installs and shells
+    /// that predate the `current` symlink. Returns `None` if nothing resolves
+    /// to an existing directory under the tool dir.
+    pub fn resolve_current(&self, tool: &str) -> Option<PathBuf> {
+        let tool_dir = self.tool_dir(tool);
+        let candidates = [
+            resolve_symlink(&self.current_symlink_path(tool)),
+            resolve_symlink(&self.default_symlink_path(tool)),
+            std::env::var_os(crate::tool_version::home_env(tool)).map(PathBuf::from),
+        ];
+        candidates
+            .into_iter()
+            .flatten()
+            .find(|path| path.is_dir() && path.starts_with(&tool_dir))
     }
 
     pub fn installed_versions<'a>(&'a self, tool: &'a str) -> color_eyre::Result<impl Iterator<Item=ToolVersion> + 'a> {

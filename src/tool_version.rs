@@ -1,6 +1,6 @@
 use std::fs::{create_dir_all};
 use std::fmt::{Display, Formatter};
-use std::{env, fs};
+use std::fs;
 use std::path::{Path, PathBuf};
 use eyre::{bail};
 use log::{debug};
@@ -127,33 +127,27 @@ impl ToolVersion {
         if !target_dir.exists() {
             bail!(format!("no tool {} version {}", self.tool, self.version))
         }
-        // TODO deal with default & env
+        // Remove the `current` symlink if it points at the version being removed,
+        // so it is never left dangling.
+        if self.is_current() {
+            debug!("removing current symlink for deleted version");
+            let _ = remove_symlink_dir(self.rsdk.current_symlink_path(&self.tool));
+        }
         debug!("deleting all of {:?}", target_dir);
         Ok(fs::remove_dir_all(target_dir)?)
     }
 
     pub fn make_default(&self) -> color_eyre::Result<()> {
-        let default_symlink_path = self.rsdk.default_symlink_path(&self.tool);
-        if let Ok(target) = fs::read_link(&default_symlink_path) {
-            debug!("removing previous symlink {:?} to {:?}", default_symlink_path, target);
-            remove_symlink_dir(&default_symlink_path)?;
-        }
-        debug!("creating symlink {:?} to {:?}", self.path(), default_symlink_path);
-        Ok(symlink::symlink_dir(self.path(), default_symlink_path)?)
+        point_symlink(&self.rsdk.default_symlink_path(&self.tool), &self.path())
     }
 
+    /// Point the tool's `current` symlink at this version and emit the
+    /// corresponding `*_HOME` environment variable for the wrapper to apply.
+    /// `PATH` is intentionally left untouched: it already contains the stable
+    /// `<tool>/current/bin` entry emitted by `rsdk init`, so flipping the
+    /// symlink is all that is needed (same model as SDKMAN).
     pub fn make_current(&self) -> color_eyre::Result<()> {
-        let any_active = self.rsdk.tool_dir(&self.tool);
-        let path = env::var_os("PATH").unwrap_or_default();
-
-        // put bin first on path to take precedence over system-provided packages
-        let mut paths = vec![self.bin()];
-        env::split_paths(&path)
-            .filter(|p| !p.starts_with(&any_active))
-            .for_each(|p| paths.push(p));
-
-        let new_path = env::join_paths(paths)?;
-        shell::set_env_var_after_exit("PATH", &new_path.to_string_lossy())?;
+        point_symlink(&self.rsdk.current_symlink_path(&self.tool), &self.path())?;
         shell::set_env_var_after_exit(&self.home(), &self.path().to_string_lossy())?;
         Ok(())
     }
@@ -163,22 +157,67 @@ impl ToolVersion {
     }
 
     pub fn is_current(&self) -> bool {
-        env::var(self.home())
-            .map(|home| home.eq(&self.path().to_string_lossy()))
-            .unwrap_or(false)
+        self.rsdk
+            .resolve_current(&self.tool)
+            .is_some_and(|cur| path_eq(&cur, &self.path()))
     }
 
     pub fn is_default(&self) -> bool {
-        let cdef_path = self.rsdk.default_symlink_path(&self.tool);
-        match fs::read_link(&cdef_path) {
-            Ok(p) => p.eq(&self.path()),
-            Err(_) => false
-        }
+        symlink_points_at(&self.rsdk.default_symlink_path(&self.tool), &self.path())
     }
 }
 
 pub fn home_env(tool: &str) -> String {
     format!("{}_HOME", tool.to_uppercase())
+}
+
+/// Repoint the symlink at `link` so it targets `target`, replacing any
+/// existing symlink (or stale file) in the way.
+fn point_symlink(link: &Path, target: &Path) -> color_eyre::Result<()> {
+    if fs::symlink_metadata(link).is_ok() {
+        debug!("removing previous symlink {:?}", link);
+        remove_symlink_dir(link)?;
+    }
+    debug!("creating symlink {:?} -> {:?}", link, target);
+    Ok(symlink::symlink_dir(target, link)?)
+}
+
+/// True if `link` is a symlink that resolves to `target`.
+fn symlink_points_at(link: &Path, target: &Path) -> bool {
+    resolve_symlink(link).is_some_and(|resolved| path_eq(&resolved, target))
+}
+
+/// Resolve a symlink to the absolute path it points at, resolving relative
+/// targets against the link's parent. Returns `None` if `link` is not a
+/// readable symlink.
+pub(crate) fn resolve_symlink(link: &Path) -> Option<PathBuf> {
+    let raw = fs::read_link(link).ok()?;
+    if raw.is_absolute() {
+        Some(raw)
+    } else {
+        link.parent().map(|p| p.join(&raw)).or(Some(raw))
+    }
+}
+
+/// Lexically normalize and compare two paths (handles `.` / `..` / duplicate
+/// separators) without requiring the paths to exist.
+fn path_eq(a: &Path, b: &Path) -> bool {
+    normalize(a) == normalize(b)
+}
+
+fn normalize(p: &Path) -> PathBuf {
+    use std::path::Component;
+    let mut out = PathBuf::new();
+    for comp in p.components() {
+        match comp {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
 }
 
 #[cfg(unix)]

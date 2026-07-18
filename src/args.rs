@@ -26,24 +26,26 @@ pub struct Cli {
 
 pub static ARGS: OnceLock<Cli> = OnceLock::new();
 
+// Accessors tolerate ARGS being unset (e.g. when the library is used from
+// integration tests) by falling back to defaults rather than panicking.
 pub fn debug() -> bool {
-    ARGS.get().unwrap().debug
+    ARGS.get().map(|c| c.debug).unwrap_or(false)
 }
 
 pub fn insecure() -> bool {
-    ARGS.get().unwrap().insecure
+    ARGS.get().map(|c| c.insecure).unwrap_or(false)
 }
 
 // pub fn offline() -> bool {
-//     ARGS.get().unwrap().offline
+//     ARGS.get().map(|c| c.offline).unwrap_or(false)
 // }
 
 pub fn shell() -> Option<String> {
-    ARGS.get().unwrap().shell.clone()
+    ARGS.get().and_then(|c| c.shell.clone())
 }
 
 pub fn envout() -> Option<String> {
-    ARGS.get().unwrap().envout.clone()
+    ARGS.get().and_then(|c| c.envout.clone())
 }
 
 /// Subcommands enum
