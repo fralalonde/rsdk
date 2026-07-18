@@ -101,6 +101,20 @@ offer to install it first (like SDKMAN), then make it current.
 
 Running with ```rsdk` --debug``  will enable verbose output and stack traces (equivalent of `RUST_BACKTRACE=1` and `RUST_LOG=debug`).  
 
+## Releasing
+
+`./release.sh` bumps the semantic version and tags the repo, mirroring `release.ps1`.
+
+```bash
+./release.sh <major|minor|patch> [--push]
+```
+
+It reads the latest `vX.Y.Z` tag (default `v0.0.0`), bumps the requested part,
+syncs `Cargo.toml`/`Cargo.lock` to the new version in a `Release <tag>` commit,
+and creates an annotated `v<new>` tag. With no `--push` it prompts before
+pushing the branch and tag (default no); on a dirty tree it offers to commit
+everything first, and it refuses to run in detached HEAD state.
+
 ## Network settings
 
 If proxying is required, ``rsdk`` honors the `http_proxy` and `https_proxy` environment variables (same as curl).
