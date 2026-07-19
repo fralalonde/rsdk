@@ -3,9 +3,8 @@
 # Usage: curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.sh | sh
 #
 # Detects the current shell, downloads the matching release tarball, extracts
-# the binary to ~/.rsdk/, writes a per-shell integration snippet, and sources
-# it in the current shell. Re-running the script reuses an already-installed
-# binary (only updates the shell snippet).
+# it to ~/.rsdk/, and configures shell integration. Re-running the script
+# reuses an already-installed binary (only updates the shell snippet).
 
 set -e
 
@@ -74,17 +73,17 @@ ensure_binary() {
     if ! curl -fL "$url" -o "$tmp/rsdk.tar.gz"; then
         fail "download failed (no release for $RUST_TARGET?)"
     fi
-    tar -xzf "$tmp/rsdk.tar.gz" -C "$tmp"
-    [ -f "$tmp/rsdk" ] || fail "tarball is missing the rsdk binary"
-    cp "$tmp/rsdk" "$RSDK_HOME/rsdk"
+    
+    # Extract entire tarball (binary + shell wrappers) to $RSDK_HOME
+    info "installing to $RSDK_HOME"
+    tar -xzf "$tmp/rsdk.tar.gz" -C "$RSDK_HOME"
     chmod +x "$RSDK_HOME/rsdk"
-    info "binary installed at $RSDK_HOME/rsdk"
 }
 
 write_shell_snippet() {
     shell=$1
-    # The tarball ships a pre-generated wrapper at <rsdk_home>/<shell>/rsdk.<shell>
-    # with PUT_RSDK_PATH_HERE already replaced by "rsdk". We source it and let
+    # The tarball ships pre-generated wrappers at <rsdk_home>/<shell>/rsdk.<shell>
+    # with PUT_RSDK_PATH_HERE already replaced by "rsdk". We source them and let
     # `rsdk init` configure PATH for the current shell.
     case "$shell" in
         bash|zsh)
@@ -98,8 +97,8 @@ eval \"\$(rsdk init 2>/dev/null || true)\"
         fish)
             snippet="
 # >>> rsdk >>>
-fish_add_path -mP \"$RSDK_HOME\" 2>/dev/null || set -gx PATH \"$RSDK_HOME\" \$PATH
-[ -f \"$RSDK_HOME/fish/rsdk.fish\" ] && source \"$RSDK_HOME/fish/rsdk.fish\"
+fish_add_path -mP "$RSDK_HOME" 2>/dev/null || set -gx PATH "$RSDK_HOME" \$PATH
+[ -f "$RSDK_HOME/fish/rsdk.fish" ] && source "$RSDK_HOME/fish/rsdk.fish"
 rsdk init 2>/dev/null | source
 # <<< rsdk <<<"
             ;;
@@ -122,12 +121,7 @@ install_shell_integration() {
 
     write_shell_snippet "$shell" >> "$rc"
     info "shell integration written to $rc"
-
-    # Apply to current shell by eval'ing the snippet (only effective in the
-    # spawned subshell here; the parent shell will pick it up from rc on restart
-    # or manual source).
-    info "restart your shell or run:"
-    info "  source $rc"
+    info "restart your shell or run: source $rc"
 }
 
 main() {
@@ -142,6 +136,7 @@ main() {
     fi
 
     install_shell_integration "$shell"
+    info "done!"
 }
 
 main "$@"
