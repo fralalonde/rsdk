@@ -18,14 +18,27 @@ Because `rsdk` is a self-contained executable, it works the same everywhere and 
  - some commands are different
  - tools are installed in the `~/.rsdk/tools` folder
 
-## The "Dirty" Trick
+## Installation
 
-`rsdk` uses shell-specific wrappers that delegate operations to the binary.
+```bash
+# Unix shells (bash / zsh / fish)
+curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.sh | sh
 
-This is because `rsdk` can not directly set the environment of the underlying shell session, 
-it prints out `set` commands to a temp file that is executed by the shell-specific wrapper scripts after `rsdk` exits.
+# PowerShell
+irm https://github.com/fralalonde/rsdk/releases/latest/download/install.ps1 | iex
+```
 
-(If you know a better way to change the parent environement, _please let me know how!_)
+The installer downloads the right prebuilt binary for your platform, places it
+at `~/.rsdk/rsdk` (unix) / `$HOME\.rsdk\rsdk.exe`, and sets up shell integration
+for your **current** shell only. If you use multiple shells, re-run the
+oneliner from each — the script reuses an already-installed binary.
+
+If shell integration (aliases for `rsdk`, `use`, `ls`, `flush`) isn't needed
+and you just want to install the binary on PATH, pass `--shell none`:
+
+```bash
+curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.sh | sh -s -- --shell none
+```
 
 ## How version switching works
 

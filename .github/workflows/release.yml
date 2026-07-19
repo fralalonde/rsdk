@@ -26,10 +26,6 @@ jobs:
             os: mac
             arch: aarch64
             rust_target: aarch64-apple-darwin
-          - runs-on: macos-13
-            os: mac
-            arch: x86_64
-            rust_target: x86_64-apple-darwin
 
     runs-on: ${{ matrix.config.runs-on }}
 
@@ -111,12 +107,19 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R artifacts
 
+      - name: Prepare installer scripts
+        run: |
+          cp scripts/install.sh artifacts/install.sh
+          cp scripts/install.ps1 artifacts/install.ps1
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             artifacts/**/*.zip
             artifacts/**/*.tar.gz
+            artifacts/install.sh
+            artifacts/install.ps1
           generate_release_notes: true
           draft: false
           prerelease: false
