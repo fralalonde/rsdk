@@ -32,15 +32,8 @@ curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.s
 ```
 
 This downloads the matching prebuilt binary to `~/.rsdk/`, installs shell
-adapters for every detected shell into `~/.rsdk/bin/`, and tells you how to
-activate each one (the installer does **not** modify your rc files). To
-activate, source the adapter for your shell, e.g.:
-
-```bash
-source ~/.rsdk/bin/rsdk.fish init   # fish
-source ~/.rsdk/bin/rsdk.bash init   # bash
-source ~/.rsdk/bin/rsdk.zsh init    # zsh
-```
+adapters for every detected shell into `~/.rsdk/bin/`. 
+The installer does **not** modify your rc files. 
 
 ### Windows (PowerShell)
 
@@ -49,11 +42,7 @@ irm https://github.com/fralalonde/rsdk/releases/latest/download/install.ps1 | ie
 ```
 
 This downloads the prebuilt `rsdk.exe` to `$HOME\.rsdk\` and installs the
-PowerShell module. After install, restart PowerShell or import the module:
-
-```powershell
-Import-Module $HOME\.rsdk\Rsdk.psm1
-```
+PowerShell module.
 
 ### Notes
 
