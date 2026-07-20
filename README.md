@@ -22,27 +22,46 @@ Because `rsdk` is a self-contained executable, it works the same everywhere and 
 
 ## Installation
 
-```bash
-# Unix shells (bash / zsh / fish)
-curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.sh | sh
+The installer scripts live at the repo root (not tied to a release), so the
+URLs below always fetch the latest version.
 
-# PowerShell
-irm https://github.com/fralalonde/rsdk/releases/latest/download/install.ps1 | iex
-```
-
-The installer downloads the right prebuilt binary for your platform, places it
-at `~/.rsdk/rsdk` (unix) / `$HOME\.rsdk\rsdk.exe`, and sets up shell integration
-for your **current** shell only. If you use multiple shells, re-run the
-oneliner from each — the script reuses an already-installed binary.
-
-If shell integration (aliases for `rsdk`, `use`, `ls`, `flush`) isn't needed
-and you just want to install the binary on PATH, pass `--shell none`:
+### Linux / macOS (bash, zsh, fish)
 
 ```bash
-curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.sh | sh -s -- --shell none
+curl -fsSL https://github.com/fralalonde/rsdk/raw/main/install.sh | sh
 ```
 
-Building from source? See [BUILD.md](BUILD.md).
+This downloads the matching prebuilt binary to `~/.rsdk/`, installs shell
+adapters for every detected shell into `~/.rsdk/bin/`, and tells you how to
+activate each one (the installer does **not** modify your rc files). To
+activate, source the adapter for your shell, e.g.:
+
+```bash
+source ~/.rsdk/bin/rsdk.fish init   # fish
+source ~/.rsdk/bin/rsdk.bash init   # bash
+source ~/.rsdk/bin/rsdk.zsh init    # zsh
+```
+
+### Windows (PowerShell)
+
+```powershell
+irm https://github.com/fralalonde/rsdk/raw/main/install.ps1 | iex
+```
+
+This downloads the prebuilt `rsdk.exe` to `$HOME\.rsdk\` and installs the
+PowerShell module. After install, restart PowerShell or import the module:
+
+```powershell
+Import-Module $HOME\.rsdk\Rsdk.psm1
+```
+
+### Notes
+
+- Re-running the installer reuses an already-installed binary (only updates
+  the shell adapters). If you use multiple shells, the script wires up all of
+  them it detects in one pass.
+- If you just want the binary on PATH without shell aliases, clone the repo
+  and build it yourself — see [BUILD.md](BUILD.md).
 
 ## How version switching works
 

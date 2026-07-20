@@ -3,13 +3,14 @@
 # Usage: curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.sh | sh
 #
 # Downloads the matching release tarball, extracts it to ~/.rsdk/, and
-# configures shell integration for every supported shell detected on the
-# system (current shell + any with an existing config file). Re-running
-# the script reuses an already-installed binary (only updates snippets).
+# installs the shell adapter scripts (one per detected shell) into
+# ~/.rsdk/bin/. Does NOT touch global rc files — the user sources the
+# adapter themselves, like the dev/install-* scripts.
 
 set -e
 
 RSDK_HOME="${RSDK_HOME:-$HOME/.rsdk}"
+RSDK_BIN="$RSDK_HOME/bin"
 REPO="fralalonde/rsdk"
 
 info()  { printf '\033[1;34mrsdk:\033[0m %s\n' "$*"; }
@@ -29,23 +30,14 @@ detect_platform() {
     esac
     case "$OS-$ARCH" in
         linux-x86_64) RUST_TARGET=x86_64-unknown-linux-gnu ;;
-        linux-arm64)  RUST_TARGET=aarch64-unknown-linux-gnu ;;  # future-proof
+        linux-arm64)  RUST_TARGET=aarch64-unknown-linux-gnu ;;
         mac-arm64)    RUST_TARGET=aarch64-apple-darwin ;;
         *)            fail "no release for $OS-$ARCH" ;;
     esac
 }
 
-rcfile_for() {
-    case "$1" in
-        bash) [ -f "$HOME/.bashrc" ] && echo "$HOME/.bashrc" || echo "$HOME/.bash_profile" ;;
-        zsh)  echo "$HOME/.zshrc" ;;
-        fish) echo "$HOME/.config/fish/config.fish" ;;
-    esac
-}
-
-# Detect every supported shell present on the system: the current shell
-# (so the user gets immediate integration) plus any other with an existing
-# config file or available on PATH. Prints shell names, one per line.
+# Detect every supported shell present on the system (current shell,
+# shells with rc files, or shells on PATH). Prints names, one per line.
 detect_shells() {
     found=""
 
@@ -61,19 +53,7 @@ detect_shells() {
         esac
     fi
 
-    # Scan for config files of every supported shell so users with multiple
-    # shells get all of them wired up in one pass.
-    for s in bash zsh fish; do
-        rc=$(rcfile_for "$s")
-        [ -n "$rc" ] && [ -f "$rc" ] || continue
-        case " $found " in
-            *" $s "*) ;;
-            *) found="$found $s" ;;
-        esac
-    done
-
-    # Detect shells on PATH even without a config yet (so the snippet gets
-    # written to a fresh rc file on first run).
+    # Detect shells on PATH so users with multiple shells get all adapters.
     for s in bash zsh fish; do
         command -v "$s" >/dev/null 2>&1 || continue
         case " $found " in
@@ -87,7 +67,6 @@ detect_shells() {
 }
 
 latest_tarball_url() {
-    # Resolve the "latest" redirect to fetch the assets list, then pick by target.
     api_url=$(curl -sIL -o /dev/null -w '%{url_effective}' \
               "https://github.com/$REPO/releases/latest")
     tag="${api_url##*/}"
@@ -95,7 +74,7 @@ latest_tarball_url() {
 }
 
 ensure_binary() {
-    mkdir -p "$RSDK_HOME"
+    mkdir -p "$RSDK_BIN"
     url=$(latest_tarball_url)
     tmp=$(mktemp -d)
     trap 'rm -rf "$tmp"' EXIT
@@ -105,52 +84,41 @@ ensure_binary() {
         fail "download failed (no release for $RUST_TARGET?)"
     fi
 
-    # Extract entire tarball (binary + shell wrappers) to $RSDK_HOME
     info "installing to $RSDK_HOME"
     tar -xzf "$tmp/rsdk.tar.gz" -C "$RSDK_HOME"
     chmod +x "$RSDK_HOME/rsdk"
 }
 
-write_shell_snippet() {
+# Install the adapter script for a shell into ~/.rsdk/bin/rsdk.<shell>
+# with the binary path patched to the real location.
+install_adapter() {
     shell=$1
-    # The tarball ships pre-generated wrappers at <rsdk_home>/<shell>/rsdk.<shell>
-    # with PUT_RSDK_PATH_HERE already replaced by "rsdk". We source them and let
-    # `rsdk init` configure PATH for the current shell.
-    case "$shell" in
-        bash|zsh)
-            echo "
-# >>> rsdk >>>
-export PATH=\"$RSDK_HOME:\$PATH\"
-[ -f \"$RSDK_HOME/$shell/rsdk.$shell\" ] && . \"$RSDK_HOME/$shell/rsdk.$shell\"
-eval \"\$(rsdk init 2>/dev/null || true)\"
-# <<< rsdk <<<"
-            ;;
-        fish)
-            echo "
-# >>> rsdk >>>
-fish_add_path -mP \"$RSDK_HOME\" 2>/dev/null || set -gx PATH \"$RSDK_HOME\" \$PATH
-[ -f \"$RSDK_HOME/fish/rsdk.fish\" ] && source \"$RSDK_HOME/fish/rsdk.fish\"
-rsdk init 2>/dev/null | source
-# <<< rsdk <<<"
-            ;;
-    esac
+    src="$RSDK_HOME/$shell/rsdk.$shell"
+    dst="$RSDK_BIN/rsdk.$shell"
+
+    [ -f "$src" ] || { warn "  $shell: no template in tarball, skipping"; return; }
+
+    # The tarball ships with PUT_RSDK_PATH_HERE already replaced by "rsdk"
+    # (relative). Patch it to the absolute binary path.
+    sed "s|\"rsdk\" |\"$RSDK_HOME/rsdk\" |g; s|PUT_RSDK_PATH_HERE|$RSDK_HOME/rsdk|g" "$src" > "$dst"
+    chmod +x "$dst"
+    info "  $shell: $dst"
 }
 
-install_shell_integration() {
+# Print activation instructions for a shell.
+activation_hint() {
     shell=$1
-    rc=$(rcfile_for "$shell")
-    [ -n "$rc" ] || fail "no rc file known for $shell"
-    mkdir -p "$(dirname "$rc")"
-
-    # Strip any prior snippet we wrote so re-running is idempotent.
-    if [ -f "$rc" ]; then
-        tmp_rc=$(mktemp)
-        awk '/# >>> rsdk >>>/{skip=1} !skip{print} /# <<< rsdk <<</{skip=0}' "$rc" > "$tmp_rc"
-        mv "$tmp_rc" "$rc"
-    fi
-
-    write_shell_snippet "$shell" >> "$rc"
-    info "  $shell: $rc"
+    dst="$RSDK_BIN/rsdk.$shell"
+    case "$shell" in
+        bash|zsh)
+            info "    source $dst init  # activate now"
+            info "    # add to ~/.${shell}rc to make permanent"
+            ;;
+        fish)
+            info "    source $dst init  # activate now"
+            info "    # add to ~/.config/fish/config.fish to make permanent"
+            ;;
+    esac
 }
 
 main() {
@@ -163,12 +131,13 @@ main() {
         ensure_binary
     fi
 
-    info "configuring shell integration:"
+    info "installing shell adapters:"
     detect_shells | while read -r shell; do
-        install_shell_integration "$shell"
+        install_adapter "$shell"
+        activation_hint "$shell"
     done
 
-    info "done! restart your shell(s) or source the rc file(s)."
+    info "done! source an adapter to activate rsdk."
 }
 
 main "$@"

@@ -109,8 +109,8 @@ jobs:
 
       - name: Prepare installer scripts
         run: |
-          cp scripts/install.sh artifacts/install.sh
-          cp scripts/install.ps1 artifacts/install.ps1
+          cp install.sh artifacts/install.sh
+          cp install.ps1 artifacts/install.ps1
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
