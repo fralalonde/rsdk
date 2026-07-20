@@ -22,13 +22,13 @@ Because `rsdk` is a self-contained executable, it works the same everywhere and 
 
 ## Installation
 
-The installer scripts live at the repo root (not tied to a release), so the
-URLs below always fetch the latest version.
+The installer scripts are attached to each GitHub Release. The URLs below
+fetch the latest published release.
 
 ### Linux / macOS (bash, zsh, fish)
 
 ```bash
-curl -fsSL https://github.com/fralalonde/rsdk/raw/main/install.sh | sh
+curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.sh | sh
 ```
 
 This downloads the matching prebuilt binary to `~/.rsdk/`, installs shell
@@ -45,7 +45,7 @@ source ~/.rsdk/bin/rsdk.zsh init    # zsh
 ### Windows (PowerShell)
 
 ```powershell
-irm https://github.com/fralalonde/rsdk/raw/main/install.ps1 | iex
+irm https://github.com/fralalonde/rsdk/releases/latest/download/install.ps1 | iex
 ```
 
 This downloads the prebuilt `rsdk.exe` to `$HOME\.rsdk\` and installs the

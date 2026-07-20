@@ -131,6 +131,9 @@ main() {
         ensure_binary
     fi
 
+    # Ensure adapter dir exists (ensure_binary only makes it on fresh install).
+    mkdir -p "$RSDK_BIN"
+
     info "installing shell adapters:"
     detect_shells | while read -r shell; do
         install_adapter "$shell"
