@@ -1,5 +1,7 @@
 # `rsdk` - Native JVM tools manager
 
+![TUI demo](docs/demo.gif)
+
 `rsdk` is a from-scratch rewrite of the otherwise excellent [SDKMAN](https://sdkman.io/) JVM tool manager. 
 
 The problem with SDKMAN is that it's made mostly of bash scripts, limiting its portability to other shells and non-Unix OS.
@@ -40,6 +42,8 @@ and you just want to install the binary on PATH, pass `--shell none`:
 curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.sh | sh -s -- --shell none
 ```
 
+Building from source? See [BUILD.md](BUILD.md).
+
 ## How version switching works
 
 Like SDKMAN, `rsdk` tracks the **active** version of each tool with a `current`
@@ -54,37 +58,8 @@ that symlink and update `*_HOME` — `PATH` is never rewritten after `init`.
 This means the active version survives across shells and new terminal sessions
 (the symlink is on disk, not in one shell's environment).
 
-## Disclaimer
-**`rsdk` is beta quality and may spuriously eat your dog even if you didn't have one.**
+## Usage (CLI)
 
-## Installation
-
-Unfortunately, installing `rsdk` from source is the only way for now (TODO [package managers](https://github.com/fralalonde/rsdk/issues/6)).
-
-Because `rsdk` is compiled, installing it requires [Rust to be installed](https://www.rust-lang.org/tools/install). 
-
-(I know I said that `rsdk` didn't need other stuff to be installed first. I lied.)
-
-### Clone the repo
-
-``git clone https://github.com/fralalonde/rsdk.git``
-
-or [download the source](https://github.com/fralalonde/rsdk/archive/refs/heads/main.zip)
-
-Then from the new `rsdk` directory, run the appropriate install script:
-
-| Shell      | Command                    |
-|------------|----------------------------|
-| Powershell | `.\dev\Install-Module.ps1` |
-| Bash       | `. dev/install-bash`       |
-| Zsh        | `. dev/install-zsh`        |
-| Fish       | `. dev/install-fish`       |
-
-### Debug
-
-Append ``--debug`` to any install script for a debug build - faster compile, better stack traces, slower archive extraction.
-
-## Usage
 `rsdk` deals in `tools` and `versions`.
 
 | Shell                        | Command Format                    | Examples                     |
@@ -108,19 +83,53 @@ offer to install it first (like SDKMAN), then make it current.
 
 Running with `--debug` enables verbose output and stack traces (equivalent of `RUST_BACKTRACE=1` and `RUST_LOG=debug`).  
 
-## Releasing
+## Usage (TUI)
 
-`./release.sh` bumps the semantic version and tags the repo, mirroring `release.ps1`.
+`rsdk tui` launches an interactive Midnight Commander-style browser for
+discovering, installing, and managing JVM tools without remembering commands.
 
-```bash
-./release.sh <major|minor|patch> [--push]
+```
+┌─ rsdk ────────────────────────────────────────────────────────────┐
+│ ┌─ Tools ──────────┐  ┌─ Details ───────────────────────────────┐ │
+│ │ * java    25-tem │  │ Java is a programming language and...   │ │
+│ │ * maven   3.9.9  │  │                                        │ │
+│ │   gradle         │  │ ─────────────────────────────────────── │ │
+│ │   kotlin         │  │ Installed versions:                    │ │
+│ │   scala          │  │   • 25-tem                             │ │
+│ │                  │  │                                        │ │
+│ └──────────────────┘  └────────────────────────────────────────┘ │
+│ [L] ↑↓ navigate  ←→ drill/back  Tab pane  Enter select  Esc quit   │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
-It reads the latest `vX.Y.Z` tag (default `v0.0.0`), bumps the requested part,
-syncs `Cargo.toml`/`Cargo.lock` to the new version in a `Release <tag>` commit,
-and creates an annotated `v<new>` tag. With no `--push` it prompts before
-pushing the branch and tag (default no); on a dirty tree it offers to commit
-everything first, and it refuses to run in detached HEAD state.
+**Layout:** two panes. Left lists tools (installed ones starred and ranked
+first). Right shows the selected tool's description + installed versions,
+or — after drilling in — the list of available versions.
+
+**Navigation:**
+
+| Key            | Action                                    |
+|----------------|-------------------------------------------|
+| `↑` `↓` / `k` `j` | move selection                         |
+| `Enter` / `→`  | drill in (tool → versions / open actions) |
+| `Esc` / `←`    | go back (Esc at top level quits)          |
+| `Tab`          | switch active pane                        |
+| `PgUp` / `PgDn`| jump by 10 rows                           |
+| type any text  | filter the active pane                    |
+| `Enter` on a version | pick an action: Install, Use, Set default, Remove |
+
+**Action modal:** selecting a version pops a compact modal. Installed versions
+offer Use / Set as default / Remove; uninstalled versions offer Install
+only. Installing shows a live progress bar with a cancel option. After a
+successful install, if other versions are already present, you're asked
+whether to make the new one the default.
+
+**Visual cues:** installed tools/versions are starred (`*`) and sorted first;
+versions are ranked default → current → others (latest first), then uninstalled
+(latest first). The current version is highlighted yellow, the default magenta.
+
+**Refresh:** any change (install/use/default/remove) refreshes the lists in
+place and returns focus to the version pane, so you stay in context.
 
 ## Network options
 
@@ -128,22 +137,10 @@ If proxying is required, ``rsdk`` honors the `http_proxy` and `https_proxy` envi
 
 If required, ``--insecure`` disables certificate validation allowing use of self-signed certificates.
 
-## Other platforms
+## Disclaimer
 
-I do not have a collection of exotic machines to test on. If you use an architecture that isn't supported,
-please add it to the defined `PLATFORM`s in `api.rs` and submit a [pull request](https://github.com/fralalonde/rsdk/pulls) for it.
-
-Alternative shells may require a bit more work to support but are welcome too. 
-`nushell` support in particular would be [nice](https://github.com/fralalonde/rsdk/issues/1).
+**`rsdk` is beta quality and may spuriously eat your dog even if you didn't have one.**
 
 ## Future
 
 See [issues](https://github.com/fralalonde/rsdk/issues) for a list of planned features.
-
-## Disclaimer and policy
-
-Original CLI functionality was hand coded. Later features may have been generated. I reviewed and will support all of it.
-
-I expect contributors to follow the same guidelines. Stand by your work; automation does not absolve one of responsibility. 
-
-This is a fun-only project. I reserve the right to refuse anything that doesn't make me happy.
