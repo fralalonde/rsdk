@@ -89,34 +89,58 @@ ensure_binary() {
     chmod +x "$RSDK_HOME/rsdk"
 }
 
-# Install the adapter script for a shell into ~/.rsdk/bin/rsdk.<shell>
-# with the binary path patched to the real location.
+# Patch a template's exe path to the absolute binary, handling every form
+# the templates use: PUT_RSDK_PATH_HERE, the relative "rsdk", and the fish
+# `eval "rsdk $argument_list"` form (which the release tarballs bake in).
+patch_exe() {
+    src=$1
+    dst=$2
+    sed -e "s|PUT_RSDK_PATH_HERE|$RSDK_HOME/rsdk|g" \
+        -e "s|\"rsdk\" |\"$RSDK_HOME/rsdk\" |g" \
+        -e "s|eval \"rsdk \$argument_list\"|\"$RSDK_HOME/rsdk\" \$argument_list|g" \
+        "$src" > "$dst"
+}
+
+# Install the adapter script for a shell, mirroring dev/install-*.
+#   bash/zsh -> ~/.rsdk/bin/rsdk.<shell>  (user sources it / adds to rc)
+#   fish     -> ~/.config/fish/functions/rsdk.fish + conf.d plugin (autoload)
 install_adapter() {
     shell=$1
     src="$RSDK_HOME/$shell/rsdk.$shell"
-    dst="$RSDK_BIN/rsdk.$shell"
 
     [ -f "$src" ] || { warn "  $shell: no template in tarball, skipping"; return; }
 
-    # The tarball ships with PUT_RSDK_PATH_HERE already replaced by "rsdk"
-    # (relative). Patch it to the absolute binary path.
-    sed "s|\"rsdk\" |\"$RSDK_HOME/rsdk\" |g; s|PUT_RSDK_PATH_HERE|$RSDK_HOME/rsdk|g" "$src" > "$dst"
-    chmod +x "$dst"
-    info "  $shell: $dst"
+    case "$shell" in
+        bash|zsh)
+            dst="$RSDK_BIN/rsdk.$shell"
+            patch_exe "$src" "$dst"
+            chmod +x "$dst"
+            info "  $shell: $dst"
+            ;;
+        fish)
+            func_dir="$HOME/.config/fish/functions"
+            conf_dir="$HOME/.config/fish/conf.d"
+            mkdir -p "$func_dir" "$conf_dir"
+            patch_exe "$src" "$func_dir/rsdk.fish"
+            cp "$RSDK_HOME/fish/rsdk_plugin.fish" "$conf_dir/rsdk_plugin.fish" 2>/dev/null \
+                || warn "  fish: plugin template missing in tarball"
+            info "  fish: $func_dir/rsdk.fish (+ conf.d plugin)"
+            ;;
+    esac
 }
 
 # Print activation instructions for a shell.
 activation_hint() {
     shell=$1
-    dst="$RSDK_BIN/rsdk.$shell"
     case "$shell" in
         bash|zsh)
+            dst="$RSDK_BIN/rsdk.$shell"
             info "    source $dst init  # activate now"
             info "    # add to ~/.${shell}rc to make permanent"
             ;;
         fish)
-            info "    source $dst init  # activate now"
-            info "    # add to ~/.config/fish/config.fish to make permanent"
+            info "    fish reloads automatically (functions/ + conf.d/)"
+            info "    # or run: source ~/.config/fish/functions/rsdk.fish init"
             ;;
     esac
 }
