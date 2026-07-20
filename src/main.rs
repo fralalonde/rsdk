@@ -225,8 +225,7 @@ fn main() -> color_eyre::Result<()> {
             }
         }
     } else {
-        Cli::command().print_help().unwrap();
-        println!();
+        Cli::command().print_help()?;
     }
     Ok(())
 }

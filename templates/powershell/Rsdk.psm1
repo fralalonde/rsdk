@@ -5,17 +5,20 @@ function Invoke-Rsdk {
             Mandatory=$False,
             Position = 0
         )]
-        [string]$Command = "--help",  # Default to --help if no command is given
+        [string]$Command,
 
         [Parameter(
             Mandatory=$False,
             ValueFromRemainingArguments=$true,
             Position = 1
-        )][string[]]
+        )]
         [string[]]$Args
     )
 
     $rsdkPath = "PUT_RSDK_PATH_HERE"
+
+    # Default to launching the TUI when no command is given.
+    if (-not $Command) { $Command = "tui" }
 
     $tempFile = New-TemporaryFile
     $tempFilePath = $tempFile.FullName
@@ -29,14 +32,12 @@ function Invoke-Rsdk {
     }
 
     # Run rsdk.exe, capturing output live (tee-like behavior)
-    # write-host "$rsdkPath $argumentList"
     & $rsdkPath $argumentList
 
     # Parse the output for environment variable changes and apply them
     if (Test-Path $tempFilePath) {
         $commands = Get-Content -Path $tempFilePath -Raw
         if (-not [string]::IsNullOrWhiteSpace($commands)) {
-            # write-host "envout contains $commands"
             Invoke-Expression $commands
         }
     }

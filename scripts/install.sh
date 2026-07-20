@@ -2,9 +2,10 @@
 # rsdk installer for Unix shells (bash / zsh / fish).
 # Usage: curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.sh | sh
 #
-# Detects the current shell, downloads the matching release tarball, extracts
-# it to ~/.rsdk/, and configures shell integration. Re-running the script
-# reuses an already-installed binary (only updates the shell snippet).
+# Downloads the matching release tarball, extracts it to ~/.rsdk/, and
+# configures shell integration for every supported shell detected on the
+# system (current shell + any with an existing config file). Re-running
+# the script reuses an already-installed binary (only updates snippets).
 
 set -e
 
@@ -34,16 +35,6 @@ detect_platform() {
     esac
 }
 
-detect_shell() {
-    if [ -n "${BASH_VERSION:-}" ]; then echo bash; return; fi
-    if [ -n "${ZSH_VERSION:-}"  ]; then echo zsh;  return; fi
-    if [ -n "${FISH_VERSION:-}" ]; then echo fish; return; fi
-    case "${SHELL##*/}" in
-        bash|zsh|fish) echo "${SHELL##*/}" ;;
-        *) fail "could not detect shell; supported: bash, zsh, fish" ;;
-    esac
-}
-
 rcfile_for() {
     case "$1" in
         bash) [ -f "$HOME/.bashrc" ] && echo "$HOME/.bashrc" || echo "$HOME/.bash_profile" ;;
@@ -52,20 +43,60 @@ rcfile_for() {
     esac
 }
 
+# Detect every supported shell present on the system: the current shell
+# (so the user gets immediate integration) plus any other with an existing
+# config file or available on PATH. Prints shell names, one per line.
+detect_shells() {
+    found=""
+
+    # Current shell — check version vars first (works under `| sh`).
+    if [ -n "${BASH_VERSION:-}" ];  then found="$found bash"; fi
+    if [ -n "${ZSH_VERSION:-}" ];   then found="$found zsh";  fi
+    if [ -n "${FISH_VERSION:-}" ];  then found="$found fish"; fi
+
+    # Fall back to $SHELL if nothing matched.
+    if [ -z "$found" ]; then
+        case "${SHELL##*/}" in
+            bash) found="bash" ;; zsh) found="zsh" ;; fish) found="fish" ;;
+        esac
+    fi
+
+    # Scan for config files of every supported shell so users with multiple
+    # shells get all of them wired up in one pass.
+    for s in bash zsh fish; do
+        rc=$(rcfile_for "$s")
+        [ -n "$rc" ] && [ -f "$rc" ] || continue
+        case " $found " in
+            *" $s "*) ;;
+            *) found="$found $s" ;;
+        esac
+    done
+
+    # Detect shells on PATH even without a config yet (so the snippet gets
+    # written to a fresh rc file on first run).
+    for s in bash zsh fish; do
+        command -v "$s" >/dev/null 2>&1 || continue
+        case " $found " in
+            *" $s "*) ;;
+            *) found="$found $s" ;;
+        esac
+    done
+
+    [ -n "$found" ] || fail "no supported shells found (bash, zsh, fish)"
+    for s in $found; do echo "$s"; done
+}
+
 latest_tarball_url() {
     # Resolve the "latest" redirect to fetch the assets list, then pick by target.
-    local api_url
     api_url=$(curl -sIL -o /dev/null -w '%{url_effective}' \
               "https://github.com/$REPO/releases/latest")
-    local tag="${api_url##*/}"
+    tag="${api_url##*/}"
     echo "https://github.com/$REPO/releases/download/$tag/rsdk-$tag-$RUST_TARGET.tar.gz"
 }
 
 ensure_binary() {
     mkdir -p "$RSDK_HOME"
-    local url
     url=$(latest_tarball_url)
-    local tmp
     tmp=$(mktemp -d)
     trap 'rm -rf "$tmp"' EXIT
 
@@ -73,7 +104,7 @@ ensure_binary() {
     if ! curl -fL "$url" -o "$tmp/rsdk.tar.gz"; then
         fail "download failed (no release for $RUST_TARGET?)"
     fi
-    
+
     # Extract entire tarball (binary + shell wrappers) to $RSDK_HOME
     info "installing to $RSDK_HOME"
     tar -xzf "$tmp/rsdk.tar.gz" -C "$RSDK_HOME"
@@ -87,7 +118,7 @@ write_shell_snippet() {
     # `rsdk init` configure PATH for the current shell.
     case "$shell" in
         bash|zsh)
-            snippet="
+            echo "
 # >>> rsdk >>>
 export PATH=\"$RSDK_HOME:\$PATH\"
 [ -f \"$RSDK_HOME/$shell/rsdk.$shell\" ] && . \"$RSDK_HOME/$shell/rsdk.$shell\"
@@ -95,15 +126,14 @@ eval \"\$(rsdk init 2>/dev/null || true)\"
 # <<< rsdk <<<"
             ;;
         fish)
-            snippet="
+            echo "
 # >>> rsdk >>>
-fish_add_path -mP "$RSDK_HOME" 2>/dev/null || set -gx PATH "$RSDK_HOME" \$PATH
-[ -f "$RSDK_HOME/fish/rsdk.fish" ] && source "$RSDK_HOME/fish/rsdk.fish"
+fish_add_path -mP \"$RSDK_HOME\" 2>/dev/null || set -gx PATH \"$RSDK_HOME\" \$PATH
+[ -f \"$RSDK_HOME/fish/rsdk.fish\" ] && source \"$RSDK_HOME/fish/rsdk.fish\"
 rsdk init 2>/dev/null | source
 # <<< rsdk <<<"
             ;;
     esac
-    echo "$snippet"
 }
 
 install_shell_integration() {
@@ -120,14 +150,12 @@ install_shell_integration() {
     fi
 
     write_shell_snippet "$shell" >> "$rc"
-    info "shell integration written to $rc"
-    info "restart your shell or run: source $rc"
+    info "  $shell: $rc"
 }
 
 main() {
     detect_platform
-    shell=$(detect_shell)
-    info "platform: ${OS}-${ARCH} ($RUST_TARGET)  shell: $shell  home: $RSDK_HOME"
+    info "platform: ${OS}-${ARCH} ($RUST_TARGET)  home: $RSDK_HOME"
 
     if [ -f "$RSDK_HOME/rsdk" ]; then
         info "reusing existing binary at $RSDK_HOME/rsdk"
@@ -135,8 +163,12 @@ main() {
         ensure_binary
     fi
 
-    install_shell_integration "$shell"
-    info "done!"
+    info "configuring shell integration:"
+    detect_shells | while read -r shell; do
+        install_shell_integration "$shell"
+    done
+
+    info "done! restart your shell(s) or source the rc file(s)."
 }
 
 main "$@"

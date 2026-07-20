@@ -356,14 +356,29 @@ impl App {
                 self.searching = false;
                 self.search.clear();
             }
-            KeyCode::Enter => {
-                self.searching = false;
-            }
             KeyCode::Char(c) if c.is_alphanumeric() => {
                 self.search.push(c);
             }
             KeyCode::Backspace => {
-                self.search.pop();
+                if self.search.is_empty() {
+                    // Empty filter + backspace exits search mode.
+                    self.searching = false;
+                } else {
+                    self.search.pop();
+                }
+            }
+            // Let navigation, selection, and pane-switching keys work
+            // while searching so the user can filter and move at once.
+            KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right
+            | KeyCode::PageUp | KeyCode::PageDown | KeyCode::Tab | KeyCode::Enter
+            | KeyCode::Char('j') | KeyCode::Char('k') => {
+                // Keep search active for arrows/PgUp/PgDn/Tab; only Enter
+                // exits search (it's also the drill-in/select key).
+                if matches!(key.code, KeyCode::Enter) {
+                    self.searching = false;
+                }
+                self.status_msg.clear();
+                self.handle_key(key)?;
             }
             _ => {}
         }
@@ -688,18 +703,20 @@ impl App {
         }
     }
 
-    // ── Enter / Esc ─────────────────────────────────────────────────────────
     fn enter(&mut self) -> Result<()> {
         match self.active {
             Pane::Left => {
                 if let Some(tool) = self.selected_tool_name() {
                     self.load_versions(&tool)?;
                     self.active = Pane::Right;
+                    self.search.clear();
+                    self.searching = false;
                 }
             }
             Pane::Right => {
                 if let Some((tool, version)) = self.selected_version() {
-                    let installed = ToolVersion::new(&self.rsdk_home, &tool, &version).is_installed();
+                    let installed =
+                        ToolVersion::new(&self.rsdk_home, &tool, &version).is_installed();
                     self.open_action_modal(&tool, &version, installed);
                 }
             }
@@ -712,6 +729,8 @@ impl App {
             Pane::Right => {
                 self.active = Pane::Left;
                 self.versions.clear();
+                self.search.clear();
+                self.searching = false;
                 self.update_tool_info();
             }
             Pane::Left => self.running = false,

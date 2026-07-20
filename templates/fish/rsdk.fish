@@ -5,21 +5,25 @@ function rsdk
     set command $argv[1]
     set args $argv[2..-1]
 
+    # Default to launching the TUI when no command is given.
+    if test -z "$command"
+        set command tui
+    end
+
     # Create a temporary file to capture environment variable changes
     set temp_file (mktemp)
 
     # Build the argument list with --shell and --envout
-    set argument_list "--shell" "fish" "--envout" $temp_file $command $args
+    set argument_list --shell fish --envout $temp_file $command $args
 
-    # Run rsdk and capture live output
-    eval "PUT_RSDK_PATH_HERE $argument_list"
+    # Run rsdk directly (not eval — eval breaks terminal control for TUI).
+    "PUT_RSDK_PATH_HERE" $argument_list
 
     # Apply environment changes if any were output
     if test -s $temp_file
-        # Source the temp file to apply any environment variable changes
         source $temp_file
     end
 
-    # Clean up (should not be needed?)
+    # Clean up
     rm -f $temp_file
 end

@@ -1,60 +1,87 @@
-# docs/demo.tape — generates docs/demo.gif
-# Requires VHS: https://github.com/charmbracelet/vhs
-#   brew install vhs        (macOS)
-#   yay -S vhs              (Arch)
-#   go install github.com/charmbracelet/vhs@latest
-# Then:  vhs docs/demo.tape
-#
-# The gif is referenced from README.md as ![TUI demo](docs/demo.gif).
-# Regenerate after significant TUI changes.
-
-Output docs/demo.gif
-Set FontSize 14
-Set Padding 8
-Set Width 1100
-Set Height 680
-Set Theme "Dracula"
-
-# Build a debug binary first so the tape doesn't depend on an installed rsdk.
-Type "cargo build --quiet"
-Enter
-Sleep 2s
-
-# Launch the TUI.
-Type "./target/debug/rsdk tui"
-Enter
-Sleep 3s
-
-# Search for "java".
-Type "java"
-Sleep 1s
-
-# Drill into java's versions.
-Enter
-Sleep 2s
-
-# Clear the filter and browse.
-Backspace@4
-Down
-Down
-Sleep 1s
-
-# Open the action modal on a version.
-Enter
-Sleep 2s
-
-# Dismiss it.
+Set Shell fish
 Escape
+Type "P>|Konsole 26.04.0"
+Escape
+Type "\"
+Escape
+Type "[?62;1;4c"
+Escape
+Type "[?62;1;4c"
+Sleep 500ms
+Type "rsdk"
+Sleep 500ms
+Enter
+Escape
+Type "[?62;1;4c"
+Sleep 4.5s
+Up
+Type " tui"
+Enter
+Down 2
+Sleep 500ms
+Enter
+Down 5
+Sleep 500ms
+Type "tem"
 Sleep 1s
-
-# Back out to the tools list.
+Down 3
+Up 3
+Sleep 500ms
+Up 2
+Down
+Up
+Down 3
+Sleep 500ms
+Backspace 4
+Sleep 500ms
+Enter
+Sleep 500ms
+Down 2
+Up 2
+Sleep 500ms
+Type "tem"
+Down 2
+Up 3
+Enter
+Sleep 1s
+Enter
 Left
-Sleep 1s
-
-# Browse a couple more tools.
-Down
-Down
-Sleep 1s
-
-# Quit.
+Tab 2
+Sleep 500ms
+Tab
+Sleep 2s
+Type "q"
+Sleep 500ms
+Backspace
+Sleep 500ms
+Escape 2
+Sleep 500ms
+Escape 2
+Type "[?62;1;4c"
+Sleep 7s
+Ctrl+C
+Sleep 2s
+Type "ps "
+Sleep 500ms
+Type "ax"
+Enter
 Escape
+Type "[?62;1;4c"
+Sleep 1s
+Type "ps"
+Enter
+Escape
+Type "[?62;1;4c"
+Sleep 3s
+Up
+Down
+Sleep 500ms
+Down 2
+Sleep 2.5s
+Up 7
+Sleep 1.5s
+Enter
+Escape
+Type "[?62;1;4c"
+Sleep 8s
+

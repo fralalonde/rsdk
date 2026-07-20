@@ -23,9 +23,8 @@ function invoke_rsdk() {
 }
 
 if [[ $# -eq 0 ]]; then
-    # If no parameters are provided, call invoke_rsdk with --help
-    invoke_rsdk --help
+    # No args: launch the TUI (env changes still apply via envout).
+    invoke_rsdk tui
 else
-    # Otherwise, just call invoke_rsdk with the provided command and arguments
     invoke_rsdk "$@"
 fi
