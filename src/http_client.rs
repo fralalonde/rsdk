@@ -7,6 +7,7 @@ use reqwest::header;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use crate::args;
 use crate::cache::{CacheManager,  CacheEntry};
@@ -59,6 +60,31 @@ impl CachedHttpClient {
         Ok(entry)
     }
 
+    /// Monitored variant: reports `(bytes_downloaded, total_size)` via the
+    /// callback after each chunk, and aborts (cleaning up the partial file)
+    /// when `cancel` is set. Used by the TUI for its progress modal.
+    pub fn get_cached_file_monitored(
+        &self,
+        url: &str,
+        on_progress: &mut dyn FnMut(u64, u64),
+        cancel: &AtomicBool,
+    ) -> Result<CacheEntry> {
+        debug!("Getting (monitored) file for {url}");
+        let mut entry = self.cache.get_cache_entry(url);
+
+        if !entry.is_valid() {
+            let name = self.download_to_file_monitored(url, &entry.file_path(), on_progress, cancel)?;
+            entry.metadata.file_name = name;
+            entry.save()?;
+        } else {
+            debug!("File found in cache");
+            let len = std::fs::metadata(entry.file_path())?.len();
+            on_progress(len, len);
+        }
+
+        Ok(entry)
+    }
+
     fn download_to_file(&self, url: &str, file_path: &Path) -> Result<String> {
         let head_response = self.client.head(url).send().context("Failed to send HEAD request")?;
         let headers = head_response.headers().clone();
@@ -92,4 +118,54 @@ impl CachedHttpClient {
 
         Ok(file_name)
     }
+
+    fn download_to_file_monitored(
+        &self,
+        url: &str,
+        file_path: &Path,
+        on_progress: &mut dyn FnMut(u64, u64),
+        cancel: &AtomicBool,
+    ) -> Result<String> {
+        let head_response = self.client.head(url).send().context("HEAD")?;
+        let headers = head_response.headers().clone();
+        let total_size = headers
+            .get(header::CONTENT_LENGTH)
+            .and_then(|len| len.to_str().ok()?.parse::<u64>().ok())
+            .context("content length")?;
+
+        let file_name = headers
+            .get(header::CONTENT_DISPOSITION)
+            .and_then(|value| extract_filename_from_disposition(value.to_str().ok()?))
+            .unwrap_or("")
+            .to_string();
+
+        on_progress(0, total_size);
+
+        let mut response = self.client.get(url).send().context("GET")?;
+        if response.status() == 304 {
+            on_progress(total_size, total_size);
+            return Ok(file_name);
+        }
+
+        let mut cache_file = File::create(file_path).context("create cache file")?;
+        let mut buffer = [0u8; 8192];
+        let mut downloaded: u64 = 0;
+        loop {
+            if cancel.load(Ordering::Relaxed) {
+                drop(cache_file);
+                let _ = std::fs::remove_file(file_path);
+                eyre::bail!("download cancelled");
+            }
+            let bytes_read = response.read(&mut buffer).context("read chunk")?;
+            if bytes_read == 0 {
+                break;
+            }
+            cache_file.write_all(&buffer[..bytes_read])?;
+            downloaded += bytes_read as u64;
+            on_progress(downloaded.min(total_size), total_size);
+        }
+
+        Ok(file_name)
+    }
 }
+

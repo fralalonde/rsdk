@@ -4,10 +4,9 @@ use std::{env, fs, io};
 use std::io::Write;
 use eyre::bail;
 use clap::{CommandFactory, Parser};
-use log::{debug};
+use log::debug;
 use rsdk::args::{Cli, Command, EnvSubcommand, ARGS};
 use rsdk::{args, rcfile, rsdk_home, shell, sdkman_client, tool_version::ToolVersion};
-use crate::tui::App;
 
 const RUST_LOG: &str = "RUST_LOG";
 const RUST_BACKTRACE: &str = "RUST_BACKTRACE";
@@ -215,15 +214,14 @@ fn main() -> color_eyre::Result<()> {
             }
             Command::Tui => {
                 color_eyre::install()?;
-                let mut terminal = tui::init()?;
-                let app_result = App::default().run(&mut terminal);
+                let result = tui::run(rsdk_home);
                 if let Err(err) = tui::restore() {
                     eprintln!(
                         "failed to restore terminal. Run `reset` or restart your terminal to recover: {}",
                         err
                     );
                 }
-                app_result?
+                result?
             }
         }
     } else {

@@ -73,6 +73,31 @@ impl ToolVersion {
         Ok((tv, true))
     }
 
+    /// Monitored variant: reports download progress via `on_progress(bytes, total)`
+    /// and aborts when `cancel` is set. The caller should run this on a worker
+    /// thread so the TUI can keep polling events.
+    pub fn install_monitored(
+        home: &RsdkHome,
+        tool: &str,
+        version: &str,
+        on_progress: &mut dyn FnMut(u64, u64),
+        cancel: &std::sync::atomic::AtomicBool,
+    ) -> color_eyre::Result<(ToolVersion, bool)> {
+        let api = sdkman_client::SdkManClient::new(&home.cache());
+        let tv = ToolVersion::new(home, tool, version);
+        if tv.is_installed() {
+            return Ok((tv, false));
+        }
+
+        let temp_dir = home.temp();
+        let work_dir = temp_dir.join("work");
+
+        let archive = api.get_cached_file_monitored(tool, version, on_progress, cancel)?;
+        debug!("archive is {:?}", archive.file_path());
+        tv.install_from_file(&archive, &work_dir, true)?;
+        Ok((tv, true))
+    }
+
     fn install_from_file(&self, archive: &CacheEntry, work_dir: &Path, force: bool) -> color_eyre::Result<()> {
         if let Err(e) = extract_zip(&archive.file_path(), work_dir) {
             debug!("file is not a zip: {:?}", e);

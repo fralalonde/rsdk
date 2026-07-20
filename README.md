@@ -128,7 +128,7 @@ If proxying is required, ``rsdk`` honors the `http_proxy` and `https_proxy` envi
 
 If required, ``--insecure`` disables certificate validation allowing use of self-signed certificates.
 
-### Other platforms
+## Other platforms
 
 I do not have a collection of exotic machines to test on. If you use an architecture that isn't supported,
 please add it to the defined `PLATFORM`s in `api.rs` and submit a [pull request](https://github.com/fralalonde/rsdk/pulls) for it.
@@ -140,4 +140,10 @@ Alternative shells may require a bit more work to support but are welcome too.
 
 See [issues](https://github.com/fralalonde/rsdk/issues) for a list of planned features.
 
-This is a fun-only project.
+## Disclaimer and policy
+
+Original CLI functionality was hand coded. Later features may have been generated. I reviewed and will support all of it.
+
+I expect contributors to follow the same guidelines. Stand by your work; automation does not absolve one of responsibility. 
+
+This is a fun-only project. I reserve the right to refuse anything that doesn't make me happy.

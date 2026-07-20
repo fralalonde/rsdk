@@ -86,6 +86,20 @@ impl SdkManClient {
         self.http_client.get_cached_file(&url)
     }
 
+    /// Monitored variant: reports progress and honours a cancel flag.
+    pub fn get_cached_file_monitored(
+        &self,
+        tool: &str,
+        version: &str,
+        on_progress: &mut dyn FnMut(u64, u64),
+        cancel: &std::sync::atomic::AtomicBool,
+    ) -> Result<CacheEntry> {
+        let platform = &self.platform;
+        let url = format!("{}/broker/download/{tool}/{version}/{platform}", self.base_url);
+        self.http_client
+            .get_cached_file_monitored(&url, on_progress, cancel)
+    }
+
     #[allow(unused)]
     pub fn get_post_install(&self, tool: &str, version: &str) -> Result<String> {
         let platform = &self.platform;
