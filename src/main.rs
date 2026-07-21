@@ -1,3 +1,4 @@
+mod cli_style;
 mod tui;
 
 use std::{env, fs, io};
@@ -58,7 +59,8 @@ fn main() -> color_eyre::Result<()> {
             Command::Install { tool, version, default } => {
                 let (tv, new_install) = ToolVersion::install(&rsdk_home, tool, version)?;
                 if !new_install {
-                    println!("Tool {} version {} was already installed", tv.tool, tv.version);
+                    println!("{} {} {}", cli_style::info("Tool"), cli_style::accent(&tv.tool), cli_style::accent(&tv.version));
+                    println!("{}", cli_style::dim("was already installed"));
                 }
 
                 let vv: Vec<_> = rsdk_home.installed_versions(tool)?.collect();
@@ -76,7 +78,7 @@ fn main() -> color_eyre::Result<()> {
                     }
                 }
                 if new_install {
-                    println!("Installed {} {}", tv.tool, tv.version);
+                    println!("{} {} {}", cli_style::star("Installed"), cli_style::accent(&tv.tool), cli_style::accent(&tv.version));
                 }
             }
             Command::Uninstall { tool, version } | Command::Remove { tool, version } => {
@@ -91,7 +93,7 @@ fn main() -> color_eyre::Result<()> {
                 }
 
                 cv.uninstall()?;
-                println!("Uninstalled {tool} {version}");
+                println!("{} {} {}", cli_style::error("Uninstalled"), cli_style::accent(&tool), cli_style::accent(&version));
 
                 let vv: Vec<_> = rsdk_home.installed_versions(tool)?.collect();
                 match vv.len() {
@@ -108,7 +110,7 @@ fn main() -> color_eyre::Result<()> {
                             new_cv.make_current()?;
                         }
                         if was_default {
-                            println!("{} version {} is the new default", new_cv.tool, new_cv.version)
+                            println!("{} {} {} {}", cli_style::default_(&new_cv.tool), cli_style::accent(&new_cv.version), cli_style::info("is the new"), cli_style::default_("default"))
                         }
                     }
                 }
@@ -132,8 +134,22 @@ fn main() -> color_eyre::Result<()> {
                 // by padding tool names to the widest (like sdkman).
                 let width = installed.iter().map(|tv| tv.tool.len()).max().unwrap_or(0);
                 for tv in &installed {
-                    let marker = if tv.is_current() { "*" } else { " " };
-                    println!("{marker} {:width$} {}", tv.tool, tv.version, width = width);
+                    let marker = if tv.is_current() {
+                        cli_style::star("*")
+                    } else {
+                        " ".to_string()
+                    };
+                    let tool = if tv.is_default() {
+                        cli_style::default_(&tv.tool)
+                    } else {
+                        tv.tool.clone()
+                    };
+                    let version = if tv.is_current() {
+                        cli_style::current(&tv.version)
+                    } else {
+                        tv.version.clone()
+                    };
+                    println!("{marker} {:width$} {}", tool, version, width = width);
                 }
             }
             Command::Env { command } => {
@@ -195,9 +211,9 @@ fn main() -> color_eyre::Result<()> {
                         if ask(&format!("{tool} {version} is not installed, install it now? (Y/n): "), true) {
                             let (tv, _) = ToolVersion::install(&rsdk_home, tool, &Some(version.clone()))?;
                             tv.make_current()?;
-                            println!("Installed {} {}", tv.tool, tv.version);
+                            println!("{} {} {}", cli_style::star("Installed"), cli_style::accent(&tv.tool), cli_style::accent(&tv.version));
                         } else {
-                            eprintln!("'{tool} {version}' is not installed");
+                            eprintln!("{}", cli_style::error(&format!("'{tool} {version}' is not installed")));
                         }
                     }
                 } else {
@@ -208,7 +224,7 @@ fn main() -> color_eyre::Result<()> {
                 }
             }
             Command::Flush {} => {
-                println!("Flushing cache");
+                println!("{}", cli_style::info("Flushing cache"));
                 fs::remove_dir_all(rsdk_home.cache())?;
                 fs::create_dir_all(rsdk_home.cache())?
             }

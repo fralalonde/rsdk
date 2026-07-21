@@ -11,6 +11,7 @@ env_logger = "0.11"
 symlink = "0.1"
 eyre = "0.6"
 color-eyre = "0.6"
+colored = "2"
 #anyhow = "1.0"
 indicatif = "0.17"
 sha = "1"
@@ -38,3 +39,5 @@ uuid = { version = "1", features = ["v4"] }
 opt-level = "z"              # Optimize for binary size
 lto = "fat"                  # Link-time optimization across all crates
 codegen-units = 1            # Single codegen unit for better optimizations
+panic = "abort"              # No unwinding tables; smaller binary, fine for a CLI
+strip = true                 # Drop debug symbols from the shipped binary

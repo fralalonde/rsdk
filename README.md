@@ -2,23 +2,20 @@
 
 ![TUI demo](docs/demo.gif)
 
-`rsdk` is a from-scratch rewrite of the otherwise excellent [SDKMAN](https://sdkman.io/) JVM tool manager. 
+`rsdk` is an alternative _client_ to the excellent [SDKMAN](https://sdkman.io/) JVM tool manager.
+It still relies on SDKMAN servers, indexes and downloads.
 
-The problem with SDKMAN is that it's made mostly of bash scripts, limiting its portability to other shells and non-Unix OS.
+`rsdk` natively integrates with bash, zsh, **powershell**, and **fish** shells, on Windows, Linux and Mac, no external plugins required.
 
-Because `rsdk` is a self-contained executable, it works the same everywhere and does not require additonal plugins or packages to be installed.
+`rsdk` provides a TUI in a addition to the classic command-line interface.
 
-`rsdk` integrates with bash, zsh, **powershell**, and **fish** shells, on Windows, Linux and Mac.
-
-`rsdk` is does not require curl, zip or any other package to run.
-
-`rsdk` is an alternative _client_, it still relies on SDKMAN indexes and downloads.
+`rsdk` is a self-contained binary executable, it works the same everywhere and does not require additional packages to be installed.
 
 `rsdk` does not try to replicate all of SDKMAN:
 
- - no offline mode
- - some commands are different
- - tools are installed in the `~/.rsdk/tools` folder
+- no offline mode
+- some commands are different
+- tools are installed in the `~/.rsdk/tools` folder
 
 ## Installation
 
@@ -33,7 +30,7 @@ curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.s
 
 This downloads the matching prebuilt binary to `~/.rsdk/`, installs shell
 adapters for every detected shell into `~/.rsdk/bin/`, and tells you how to
-activate each one (the installer does **not** modify your rc files). To
+activate each one if required (the installer does **not** modify your rc files). To
 activate, source the adapter for your shell, e.g.:
 
 ```bash

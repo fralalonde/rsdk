@@ -22,9 +22,11 @@ function invoke_rsdk() {
     rm -f "$temp_file"
 }
 
-if [[ $# -eq 0 ]]; then
-    # No args: launch the TUI (env changes still apply via envout).
-    invoke_rsdk tui
-else
-    invoke_rsdk "$@"
-fi
+# Expose rsdk as a shell function so sourcing this file activates it.
+function rsdk() {
+    if [[ $# -eq 0 ]]; then
+        invoke_rsdk tui
+    else
+        invoke_rsdk "$@"
+    fi
+}
