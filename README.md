@@ -28,16 +28,7 @@ fetch the latest published release.
 curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.sh | sh
 ```
 
-This downloads the matching prebuilt binary to `~/.rsdk/`, installs shell
-adapters for every detected shell into `~/.rsdk/bin/`, and tells you how to
-activate each one if required (the installer does **not** modify your rc files). To
-activate, source the adapter for your shell, e.g.:
-
-```bash
-source ~/.rsdk/bin/rsdk.fish init   # fish
-source ~/.rsdk/bin/rsdk.bash init   # bash
-source ~/.rsdk/bin/rsdk.zsh init    # zsh
-```
+Follow additional script instructions for desired shell integrations. 
 
 ### Windows (PowerShell)
 
@@ -46,11 +37,7 @@ irm https://github.com/fralalonde/rsdk/releases/latest/download/install.ps1 | ie
 ```
 
 This downloads the prebuilt `rsdk.exe` to `$HOME\.rsdk\` and installs the
-PowerShell module. After install, restart PowerShell or import the module:
-
-```powershell
-Import-Module $HOME\.rsdk\Rsdk.psm1
-```
+PowerShell module.
 
 ### Notes
 
@@ -101,22 +88,8 @@ Running with `--debug` enables verbose output and stack traces (equivalent of `R
 
 ## Usage (TUI)
 
-`rsdk tui` launches an interactive Midnight Commander-style browser for
-discovering, installing, and managing JVM tools without remembering commands.
-
-```
-┌─ rsdk ────────────────────────────────────────────────────────────┐
-│ ┌─ Tools ──────────┐  ┌─ Details ───────────────────────────────┐ │
-│ │ * java    25-tem │  │ Java is a programming language and...   │ │
-│ │ * maven   3.9.9  │  │                                        │ │
-│ │   gradle         │  │ ─────────────────────────────────────── │ │
-│ │   kotlin         │  │ Installed versions:                    │ │
-│ │   scala          │  │   • 25-tem                             │ │
-│ │                  │  │                                        │ │
-│ └──────────────────┘  └────────────────────────────────────────┘ │
-│ [L] ↑↓ navigate  ←→ drill/back  Tab pane  Enter select  Esc quit   │
-└────────────────────────────────────────────────────────────────────┘
-```
+`rsdk tui` launches an interactive tool browser for
+discovering, installing, and managing JVM tools without having to type commands.
 
 **Layout:** two panes. Left lists tools (installed ones starred and ranked
 first). Right shows the selected tool's description + installed versions,
@@ -143,9 +116,6 @@ whether to make the new one the default.
 **Visual cues:** installed tools/versions are starred (`*`) and sorted first;
 versions are ranked default → current → others (latest first), then uninstalled
 (latest first). The current version is highlighted yellow, the default magenta.
-
-**Refresh:** any change (install/use/default/remove) refreshes the lists in
-place and returns focus to the version pane, so you stay in context.
 
 ## Network options
 
