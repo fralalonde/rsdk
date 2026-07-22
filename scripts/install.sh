@@ -1,11 +1,13 @@
 #!/usr/bin/env sh
-# rsdk installer for Unix shells (bash / zsh / fish).
+# rsdk installer for Unix shells (bash / zsh / fish) and Linux pwsh.
 # Usage: curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.sh | sh
 #
-# Downloads the matching release tarball, extracts it to ~/.rsdk/, and
-# installs the shell adapter scripts (one per detected shell) into
-# ~/.rsdk/bin/. Does NOT touch global rc files — the user sources the
-# adapter themselves, like the dev/install-* scripts.
+# Downloads the matching release tarball, extracts it to ~/.rsdk/, and:
+#   - Installs the shell adapter for every detected shell
+#   - For bash/zsh: auto-adds the `source` line to .bashrc/.zshrc
+#     (skips with a warning if "rsdk" already appears)
+#   - For fish: copies the adapter to ~/.config/fish/functions/ (autoload)
+#   - For pwsh (Linux): copies the module to ~/.local/share/powershell/Modules/
 
 set -e
 
@@ -15,6 +17,7 @@ REPO="fralalonde/rsdk"
 
 info()  { printf '\033[1;34mrsdk:\033[0m %s\n' "$*"; }
 warn()  { printf '\033[1;33mrsdk:\033[0m %s\n' "$*" >&2; }
+rsuccess() { printf '\033[1;32mrsdk:\033[0m %s\n' "$*"; }
 fail()  { printf '\033[1;31mrsdk:\033[0m %s\n' "$*" >&2; exit 1; }
 
 detect_platform() {
@@ -36,33 +39,28 @@ detect_platform() {
     esac
 }
 
-# Detect every supported shell present on the system (current shell,
-# shells with rc files, or shells on PATH). Prints names, one per line.
+# Detect every supported shell present on the system.
 detect_shells() {
     found=""
+    [ -n "${BASH_VERSION:-}" ] && found="$found bash"
+    [ -n "${ZSH_VERSION:-}" ]  && found="$found zsh"
+    [ -n "${FISH_VERSION:-}" ] && found="$found fish"
 
-    # Current shell — check version vars first (works under `| sh`).
-    if [ -n "${BASH_VERSION:-}" ];  then found="$found bash"; fi
-    if [ -n "${ZSH_VERSION:-}" ];   then found="$found zsh";  fi
-    if [ -n "${FISH_VERSION:-}" ];  then found="$found fish"; fi
+    [ -z "$found" ] && case "${SHELL##*/}" in
+        bash|zsh|fish) found="${SHELL##*/}" ;;
+    esac
 
-    # Fall back to $SHELL if nothing matched.
-    if [ -z "$found" ]; then
-        case "${SHELL##*/}" in
-            bash) found="bash" ;; zsh) found="zsh" ;; fish) found="fish" ;;
-        esac
-    fi
-
-    # Detect shells on PATH so users with multiple shells get all adapters.
     for s in bash zsh fish; do
         command -v "$s" >/dev/null 2>&1 || continue
-        case " $found " in
-            *" $s "*) ;;
-            *) found="$found $s" ;;
-        esac
+        case " $found " in *" $s "*) ;; *) found="$found $s" ;; esac
     done
 
-    [ -n "$found" ] || fail "no supported shells found (bash, zsh, fish)"
+    # Detect pwsh (PowerShell Core on Linux/macOS)
+    command -v pwsh >/dev/null 2>&1 && case " $found " in
+        *" powershell "*) ;; *) found="$found powershell" ;;
+    esac
+
+    [ -n "$found" ] || fail "no supported shells found (bash, zsh, fish, pwsh)"
     for s in $found; do echo "$s"; done
 }
 
@@ -89,35 +87,35 @@ ensure_binary() {
     chmod +x "$RSDK_HOME/rsdk"
 }
 
-# Patch a template's exe path to the absolute binary, handling every form
-# the templates use: PUT_RSDK_PATH_HERE, the relative "rsdk", and the fish
-# `eval "rsdk $argument_list"` form (which the release tarballs bake in).
+# Patch a template's exe path to the absolute binary.
 patch_exe() {
     src=$1
     dst=$2
     sed -e "s|PUT_RSDK_PATH_HERE|$RSDK_HOME/rsdk|g" \
         -e "s|\"rsdk\" |\"$RSDK_HOME/rsdk\" |g" \
-        -e "s|eval \"rsdk \$argument_list\"|\"$RSDK_HOME/rsdk\" \$argument_list|g" \
+        -e "s|eval \"rsdk \\\$argument_list\"|\"$RSDK_HOME/rsdk\" \$argument_list|g" \
         "$src" > "$dst"
 }
 
-# Install the adapter script for a shell, mirroring dev/install-*.
-#   bash/zsh -> ~/.rsdk/bin/rsdk.<shell>  (user sources it / adds to rc)
-#   fish     -> ~/.config/fish/functions/rsdk.fish + conf.d plugin (autoload)
+# Install the adapter script for a shell.
+#   bash/zsh -> ~/.rsdk/bin/rsdk.<shell>
+#   fish     -> ~/.config/fish/functions/ + conf.d plugin (autoload)
+#   powershell -> ~/.local/share/powershell/Modules/Rsdk/Rsdk.psm1 (autoload)
 install_adapter() {
     shell=$1
-    src="$RSDK_HOME/$shell/rsdk.$shell"
-
-    [ -f "$src" ] || { warn "  $shell: no template in tarball, skipping"; return; }
 
     case "$shell" in
         bash|zsh)
+            src="$RSDK_HOME/$shell/rsdk.$shell"
+            [ -f "$src" ] || { warn "  $shell: no template in tarball, skipping"; return; }
             dst="$RSDK_BIN/rsdk.$shell"
             patch_exe "$src" "$dst"
             chmod +x "$dst"
             info "  $shell: $dst"
             ;;
         fish)
+            src="$RSDK_HOME/fish/rsdk.fish"
+            [ -f "$src" ] || { warn "  fish: no template in tarball, skipping"; return; }
             func_dir="$HOME/.config/fish/functions"
             conf_dir="$HOME/.config/fish/conf.d"
             mkdir -p "$func_dir" "$conf_dir"
@@ -126,21 +124,56 @@ install_adapter() {
                 || warn "  fish: plugin template missing in tarball"
             info "  fish: $func_dir/rsdk.fish (+ conf.d plugin)"
             ;;
+        powershell)
+            src="$RSDK_HOME/powershell/Rsdk.psm1"
+            [ -f "$src" ] || { warn "  powershell: no template in tarball, skipping"; return; }
+            ps_mod_dir="$HOME/.local/share/powershell/Modules/Rsdk"
+            mkdir -p "$ps_mod_dir"
+            # Powershell template uses PUT_RSDK_PATH_HERE; patch to the Unix binary path
+            sed "s|PUT_RSDK_PATH_HERE|$RSDK_HOME/rsdk|g" "$src" > "$ps_mod_dir/Rsdk.psm1"
+            info "  powershell: $ps_mod_dir/Rsdk.psm1"
+            ;;
     esac
 }
 
-# Print activation instructions for a shell.
+# Add the rsdk source line to bash/zsh rc files, skipping if "rsdk" already present.
+install_rc() {
+    shell=$1
+    case "$shell" in
+        bash)
+            rc="$HOME/.bashrc"
+            line="source \"$RSDK_BIN/rsdk.bash\" init"
+            ;;
+        zsh)
+            rc="$HOME/.zshrc"
+            line="source \"$RSDK_BIN/rsdk.zsh\" init"
+            ;;
+        *) return ;;
+    esac
+
+    [ -f "$rc" ] || return  # no rc file → nothing to do
+
+    if grep -q 'rsdk' "$rc" 2>/dev/null; then
+        warn "  $shell: 'rsdk' already appears in $rc — not modifying"
+        return
+    fi
+
+    printf '\n# rsdk shell integration\n%s\n' "$line" >> "$rc"
+    rsuccess "  $shell: added source line to $rc"
+}
+
 activation_hint() {
     shell=$1
     case "$shell" in
         bash|zsh)
-            dst="$RSDK_BIN/rsdk.$shell"
-            info "    source $dst init  # activate now"
-            info "    # add to ~/.${shell}rc to make permanent"
+            info "    source $RSDK_BIN/rsdk.$shell init  # activate now"
+            info "    # already added to ~/.${shell}rc for future shells"
             ;;
         fish)
             info "    fish reloads automatically (functions/ + conf.d/)"
-            info "    # or run: source ~/.config/fish/functions/rsdk.fish init"
+            ;;
+        powershell)
+            info "    restart pwsh or run: Import-Module Rsdk"
             ;;
     esac
 }
@@ -155,16 +188,16 @@ main() {
         ensure_binary
     fi
 
-    # Ensure adapter dir exists (ensure_binary only makes it on fresh install).
     mkdir -p "$RSDK_BIN"
 
     info "installing shell adapters:"
     detect_shells | while read -r shell; do
         install_adapter "$shell"
+        install_rc "$shell"
         activation_hint "$shell"
     done
 
-    info "done! source an adapter to activate rsdk."
+    info "done! restart your shell or source an adapter."
 }
 
 main "$@"

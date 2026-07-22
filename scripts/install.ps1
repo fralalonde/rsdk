@@ -1,9 +1,9 @@
 # rsdk installer for PowerShell
 # Usage: irm https://github.com/fralalonde/rsdk/releases/latest/download/install.ps1 | iex
 #
-# This script detects platform, downloads the appropriate release zip,
-# extracts the binary, and sets up shell integration.
-# Re-running reuses an already-installed binary.
+# Downloads the matching release zip, extracts it to ~/.rsdk/, and installs
+# the PowerShell module to the user's PSModulePath so it auto-loads on next
+# shell start. Does NOT touch $PROFILE.
 
 $ErrorActionPreference = "Stop"
 
@@ -15,10 +15,29 @@ function Write-Info($msg) {
     Write-Host $msg
 }
 
+function Write-Warn($msg) {
+    Write-Host "rsdk: " -ForegroundColor Yellow -NoNewline
+    Write-Host $msg
+}
+
 function Write-Fail($msg) {
     Write-Host "rsdk: " -ForegroundColor Red -NoNewline
     Write-Host $msg
     exit 1
+}
+
+function Get-ModulePath {
+    # Return the standard PSModulePath for user modules.
+    # PowerShell Core 6+: $HOME\Documents\PowerShell\Modules\
+    # Windows PowerShell 5.1: $HOME\Documents\WindowsPowerShell\Modules\
+    if ($IsWindows -or $PSVersionTable.OS -like "*Windows*") {
+        $core = Join-Path $HOME "Documents\PowerShell\Modules"
+        $legacy = Join-Path $HOME "Documents\WindowsPowerShell\Modules"
+        return @($core, $legacy)
+    } else {
+        # Linux / macOS pwsh
+        return @(Join-Path $HOME ".local/share/powershell/Modules")
+    }
 }
 
 function Get-PlatformInfo {
@@ -35,7 +54,7 @@ function Get-PlatformInfo {
 
     $target = switch ("$os-$arch") {
         "windows-x64"   { "x86_64-pc-windows-msvc" }
-        "windows-arm64" { "aarch64-pc-windows-msvc" }  # future-proof
+        "windows-arm64" { "aarch64-pc-windows-msvc" }
         "linux-x64"     { "x86_64-unknown-linux-gnu" }
         "mac-arm64"     { "aarch64-apple-darwin" }
         default         { Write-Fail "no release for $os-$arch" }
@@ -79,68 +98,49 @@ function Install-Binary($url) {
         Write-Info "extracting..."
         Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force
 
-        $exeSrc = Join-Path $tmpDir "rsdk.exe"
-        if (-not (Test-Path $exeSrc)) {
-            Write-Fail "zip is missing rsdk.exe"
+        # Copy entire extracted contents (binary + powershell/ templates) to ~/.rsdk/
+        New-Item -ItemType Directory -Path $RSDK_HOME -Force | Out-Null
+        Get-ChildItem -Path $tmpDir | ForEach-Object {
+            $dst = Join-Path $RSDK_HOME $_.Name
+            if ($_.PSIsContainer) {
+                Copy-Item -Path $_.FullName -Destination $dst -Recurse -Force
+            } else {
+                Copy-Item -Path $_.FullName -Destination $dst -Force
+            }
         }
 
-        New-Item -ItemType Directory -Path $RSDK_HOME -Force | Out-Null
-        $exeDst = Join-Path $RSDK_HOME "rsdk.exe"
-        Copy-Item $exeSrc $exeDst -Force
-
-        Write-Info "binary installed at $exeDst"
+        Write-Info "binary installed at $(Join-Path $RSDK_HOME 'rsdk.exe')"
     } finally {
         Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
     }
 }
 
-function Install-ShellIntegration {
-    $wrapperSrc = Join-Path $RSDK_HOME "powershell\Rsdk.psm1"
-    if (Test-Path $wrapperSrc) {
-        Write-Info "shell wrapper at $wrapperSrc"
+function Install-Module {
+    # Patch the module template with the absolute binary path and copy
+    # it to every standard PSModulePath that exists.
+    $exePath = Join-Path $RSDK_HOME "rsdk.exe"
+    $moduleSrc = Join-Path $RSDK_HOME "powershell\Rsdk.psm1"
+
+    if (-not (Test-Path $moduleSrc)) {
+        Write-Warn "PowerShell module template not found in release (no pwsh/powershell build?)"
+        return
     }
 
-    $profileFile = $PROFILE
-    $markerStart = "# >>> rsdk >>>"
-    $markerEnd = "# <<< rsdk <<<"
+    # Read template, patch the placeholder
+    $content = Get-Content -Path $moduleSrc -Raw
+    $content = $content -replace 'PUT_RSDK_PATH_HERE', $exePath
 
-    if (Test-Path $profileFile) {
-        $profileContent = Get-Content $profileFile -Raw -ErrorAction SilentlyContinue
-        if ($profileContent -match [regex]::Escape($markerStart)) {
-            # Remove old snippet
-            $lines = Get-Content $profileFile
-            $newLines = @()
-            $skip = $false
-            foreach ($line in $lines) {
-                if ($line -match [regex]::Escape($markerStart)) { $skip = $true }
-                if (-not $skip) { $newLines += $line }
-                if ($line -match [regex]::Escape($markerEnd)) { $skip = $false }
-            }
-            Set-Content $profileFile ($newLines -join "`n")
-        }
+    $installed = $false
+    foreach ($modDir in Get-ModulePath) {
+        $targetDir = Join-Path $modDir "Rsdk"
+        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+        Set-Content -Path (Join-Path $targetDir "Rsdk.psm1") -Value $content
+        Write-Info "PowerShell module: $targetDir\Rsdk.psm1"
+        $installed = $true
     }
 
-    $snippet = @"
-
-$markerStart
-`$env:PATH = "$RSDK_HOME;`$env:PATH"
-if (Test-Path "$RSDK_HOME\powershell\Rsdk.psm1") {
-    Import-Module "$RSDK_HOME\powershell\Rsdk.psm1" -Force
-}
-$markerEnd
-
-"@
-
-    New-Item -ItemType Directory -Path (Split-Path $profileFile) -Force | Out-Null
-    Add-Content -Path $profileFile -Value $snippet
-
-    Write-Info "shell integration written to $profileFile"
-    Write-Info "restart PowerShell or run: . `$PROFILE"
-
-    # Source for current session
-    $env:PATH = "$RSDK_HOME;$env:PATH"
-    if (Test-Path "$RSDK_HOME\powershell\Rsdk.psm1") {
-        Import-Module "$RSDK_HOME\powershell\Rsdk.psm1" -Force
+    if ($installed) {
+        Write-Info "PowerShell module installed — restart shell or run: Import-Module Rsdk"
     }
 }
 
@@ -156,7 +156,7 @@ function Main {
         Install-Binary $url
     }
 
-    Install-ShellIntegration
+    Install-Module
 }
 
 Main

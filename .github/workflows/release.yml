@@ -72,6 +72,10 @@ jobs:
           bash build/unix/generate-plugin.sh templates/fish "$RELEASE_DIR/fish" rsdk
           bash build/unix/generate-plugin.sh templates/zsh "$RELEASE_DIR/zsh" rsdk 2>/dev/null || true
           
+          # Generate PowerShell module (pwsh on Linux/macOS)
+          mkdir -p "$RELEASE_DIR/powershell"
+          sed 's|PUT_RSDK_PATH_HERE|rsdk|g' templates/powershell/Rsdk.psm1 > "$RELEASE_DIR/powershell/Rsdk.psm1"
+          
           # Copy binary
           cp target/release/rsdk "$RELEASE_DIR/rsdk"
           
