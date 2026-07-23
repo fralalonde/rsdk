@@ -3,10 +3,10 @@ mod tui;
 
 use std::{env, fs, io};
 use std::io::Write;
-use eyre::bail;
 use clap::{CommandFactory, Parser};
+use eyre::bail;
 use log::debug;
-use rsdk::args::{Cli, Command, EnvSubcommand, ARGS};
+use rsdk::args::{Cli, Command, EnvSubcommand, Shell, ARGS};
 use rsdk::{args, rcfile, rsdk_home, shell, sdkman_client, tool_version::ToolVersion};
 
 const RUST_LOG: &str = "RUST_LOG";
@@ -238,6 +238,16 @@ fn main() -> color_eyre::Result<()> {
                     );
                 }
                 result?
+            }
+            Command::Completions { shell } => {
+                let cmd = &mut Cli::command();
+                let name = cmd.get_name().to_string();
+                match shell {
+                    Shell::Bash => clap_complete::generate(clap_complete::shells::Bash, cmd, &name, &mut std::io::stdout()),
+                    Shell::Fish => clap_complete::generate(clap_complete::shells::Fish, cmd, &name, &mut std::io::stdout()),
+                    Shell::Zsh => clap_complete::generate(clap_complete::shells::Zsh, cmd, &name, &mut std::io::stdout()),
+                    Shell::PowerShell => clap_complete::generate(clap_complete::shells::PowerShell, cmd, &name, &mut std::io::stdout()),
+                }
             }
         }
     } else {

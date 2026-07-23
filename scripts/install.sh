@@ -122,7 +122,14 @@ install_adapter() {
             patch_exe "$src" "$func_dir/rsdk.fish"
             cp "$RSDK_HOME/fish/rsdk_plugin.fish" "$conf_dir/rsdk_plugin.fish" 2>/dev/null \
                 || warn "  fish: plugin template missing in tarball"
-            info "  fish: $func_dir/rsdk.fish (+ conf.d plugin)"
+
+            # Generate fish completions from the installed binary.
+            comp_dir="$HOME/.config/fish/completions"
+            mkdir -p "$comp_dir"
+            "$RSDK_HOME/rsdk" completions fish > "$comp_dir/rsdk.fish" 2>/dev/null \
+                && info "  fish: completions -> $comp_dir/rsdk.fish" \
+                || warn "  fish: could not generate completions"
+            info "  fish: $func_dir/rsdk.fish (+ conf.d plugin + completions)"
             ;;
         powershell)
             src="$RSDK_HOME/powershell/Rsdk.psm1"

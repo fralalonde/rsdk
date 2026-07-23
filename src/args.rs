@@ -1,5 +1,5 @@
 use std::sync::OnceLock;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 /// CLI Struct for command-line arguments
 #[derive(Parser, Clone)]
@@ -112,6 +112,20 @@ pub enum Command {
 
     #[command(about = "List installed tools or versions")]
     Tui,
+
+    #[command(about = "Generate shell completions")]
+    Completions {
+        #[arg(value_enum)]
+        shell: Shell,
+    },
+}
+
+#[derive(ValueEnum, Clone, Copy)]
+pub enum Shell {
+    Bash,
+    Fish,
+    Zsh,
+    PowerShell,
 }
 
 #[derive(Subcommand, Clone)]
