@@ -48,7 +48,12 @@ jobs:
           cp templates/fish/*.fish "$root/shell/fish/"
           if [ "${{ matrix.platform }}" = windows ]; then mkdir -p "$root/shell/powershell"; cp templates/powershell/Rsdk.psd1 templates/powershell/Rsdk.psm1 "$root/shell/powershell/"; fi
           printf '%s\n' "${GITHUB_REF_NAME#v}" > "$root/VERSION"
-          (cd "$root" && sha256sum bin/* shell/bash/* shell/zsh/* shell/fish/* VERSION > checksums.txt && if [ -d shell/powershell ]; then sha256sum shell/powershell/* >> checksums.txt; fi)
+          if command -v sha256sum >/dev/null 2>&1; then
+            checksum() { sha256sum "$@"; }
+          else
+            checksum() { shasum -a 256 "$@"; }
+          fi
+          (cd "$root" && checksum bin/* shell/bash/* shell/zsh/* shell/fish/* VERSION > checksums.txt && if [ -d shell/powershell ]; then checksum shell/powershell/* >> checksums.txt; fi)
       - name: Archive release tree
         shell: bash
         run: |

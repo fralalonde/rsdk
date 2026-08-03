@@ -46,7 +46,13 @@ cleanup() { rm -rf "$tmp"; }
 trap cleanup EXIT
 curl --fail --location --retry 3 --output "$tmp/$asset" "$base/$asset"
 if curl --fail --silent --show-error --location --output "$tmp/checksums.txt" "$base/checksums.txt"; then
-  (cd "$tmp" && grep -F " $asset" checksums.txt | sha256sum -c -)
+  (cd "$tmp" && expected=$(grep -F " $asset" checksums.txt | cut -d' ' -f1) && \
+    if command -v sha256sum >/dev/null 2>&1; then
+      printf '%s  %s\n' "$expected" "$asset" | sha256sum -c -
+    else
+      actual=$(shasum -a 256 "$asset" | cut -d' ' -f1)
+      [ "$actual" = "$expected" ] || { echo "checksum mismatch for $asset" >&2; exit 1; }
+    fi)
 fi
 mkdir -p "$tmp/unpack"
 tar -xzf "$tmp/$asset" -C "$tmp/unpack"
