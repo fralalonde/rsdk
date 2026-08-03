@@ -1,162 +1,58 @@
-# rsdk installer for PowerShell
-# Usage: irm https://github.com/fralalonde/rsdk/releases/latest/download/install.ps1 | iex
-#
-# Downloads the matching release zip, extracts it to ~/.rsdk/, and installs
-# the PowerShell module to the user's PSModulePath so it auto-loads on next
-# shell start. Does NOT touch $PROFILE.
-
-$ErrorActionPreference = "Stop"
-
-$REPO = "fralalonde/rsdk"
-$RSDK_HOME = Join-Path $HOME ".rsdk"
-
-function Write-Info($msg) {
-    Write-Host "rsdk: " -ForegroundColor Cyan -NoNewline
-    Write-Host $msg
+[CmdletBinding()]
+param(
+    [string]$Version = $env:RSDK_VERSION,
+    [switch]$Yes,
+    [switch]$NoModifyShell,
+    [string]$DownloadBaseUrl = $env:RSDK_DOWNLOAD_BASE_URL
+)
+$ErrorActionPreference = 'Stop'
+$repository = if ($env:RSDK_REPOSITORY) { $env:RSDK_REPOSITORY } else { 'fralalonde/rsdk' }
+$rsdkHome = if ($env:RSDK_HOME) { $env:RSDK_HOME } else { Join-Path $HOME '.rsdk' }
+if (-not $Version) {
+    $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/$repository/releases/latest"
+    $Version = $latest.tag_name.TrimStart('v')
 }
-
-function Write-Warn($msg) {
-    Write-Host "rsdk: " -ForegroundColor Yellow -NoNewline
-    Write-Host $msg
-}
-
-function Write-Fail($msg) {
-    Write-Host "rsdk: " -ForegroundColor Red -NoNewline
-    Write-Host $msg
-    exit 1
-}
-
-function Get-ModulePath {
-    # Return the standard PSModulePath for user modules.
-    # PowerShell Core 6+: $HOME\Documents\PowerShell\Modules\
-    # Windows PowerShell 5.1: $HOME\Documents\WindowsPowerShell\Modules\
-    if ($IsWindows -or $PSVersionTable.OS -like "*Windows*") {
-        $core = Join-Path $HOME "Documents\PowerShell\Modules"
-        $legacy = Join-Path $HOME "Documents\WindowsPowerShell\Modules"
-        return @($core, $legacy)
-    } else {
-        # Linux / macOS pwsh
-        return @(Join-Path $HOME ".local/share/powershell/Modules")
-    }
-}
-
-function Get-PlatformInfo {
-    $os = if ($IsWindows -or $PSVersionTable.OS -like "*Windows*") { "windows" }
-          elseif ($IsMacOS) { "mac" }
-          elseif ($IsLinux) { "linux" }
-          else { Write-Fail "unsupported OS: $($PSVersionTable.OS)" }
-
-    $arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
-        "X64"   { "x64" }
-        "Arm64" { "arm64" }
-        default { Write-Fail "unsupported arch: $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)" }
-    }
-
-    $target = switch ("$os-$arch") {
-        "windows-x64"   { "x86_64-pc-windows-msvc" }
-        "windows-arm64" { "aarch64-pc-windows-msvc" }
-        "linux-x64"     { "x86_64-unknown-linux-gnu" }
-        "mac-arm64"     { "aarch64-apple-darwin" }
-        default         { Write-Fail "no release for $os-$arch" }
-    }
-
-    @{ os = $os; arch = $arch; target = $target }
-}
-
-function Get-LatestReleaseUrl($rustTarget) {
-    $apiUrl = "https://api.github.com/repos/$REPO/releases/latest"
+if (-not $Version) { throw 'Unable to determine rsdk version; pass -Version VERSION.' }
+$asset = "rsdk-$Version-windows-x86_64.zip"
+if (-not $DownloadBaseUrl) { $DownloadBaseUrl = "https://github.com/$repository/releases/download/v$Version" }
+$tmp = Join-Path ([IO.Path]::GetTempPath()) ("rsdk-install-" + [guid]::NewGuid())
+New-Item -ItemType Directory -Path $tmp | Out-Null
+try {
+    $archive = Join-Path $tmp $asset
+    Invoke-WebRequest -UseBasicParsing -Uri "$DownloadBaseUrl/$asset" -OutFile $archive
     try {
-        $release = Invoke-RestMethod -Uri $apiUrl -Headers @{ "User-Agent" = "rsdk-installer" }
-    } catch {
-        Write-Fail "could not fetch latest release: $_"
+        $checksums = Join-Path $tmp 'checksums.txt'
+        Invoke-WebRequest -UseBasicParsing -Uri "$DownloadBaseUrl/checksums.txt" -OutFile $checksums
+        $expected = ((Get-Content $checksums | Where-Object { $_ -match ([regex]::Escape($asset) + '$') }) -split '\s+')[0]
+        if ($expected -and (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant() -ne $expected.ToLowerInvariant()) { throw 'Archive checksum does not match checksums.txt.' }
+    } catch [System.Net.WebException] { }
+    Expand-Archive -Path $archive -DestinationPath $tmp -Force
+    foreach ($relative in @('bin/rsdk.exe','shell/bash/rsdk.bash','shell/zsh/rsdk.zsh','shell/fish/rsdk.fish','shell/powershell/Rsdk.psd1','shell/powershell/Rsdk.psm1','VERSION','checksums.txt')) {
+        if (-not (Test-Path (Join-Path $tmp "rsdk/$relative"))) { throw "Release archive is missing rsdk/$relative" }
     }
-
-    $assetName = "rsdk-$($release.tag_name)-$rustTarget.zip"
-    $asset = $release.assets | Where-Object { $_.name -eq $assetName }
-
-    if (-not $asset) {
-        Write-Fail "no asset $assetName in release $($release.tag_name)"
-    }
-
-    $asset.browser_download_url
-}
-
-function Install-Binary($url) {
-    $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) "rsdk-install-$(Get-Random)"
-    New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
-
-    try {
-        $zipPath = Join-Path $tmpDir "rsdk.zip"
-
-        Write-Info "downloading $url"
-        if ($PSVersionTable.PSEdition -eq "Core") {
-            Invoke-WebRequest -Uri $url -OutFile $zipPath
+    New-Item -ItemType Directory -Force -Path $rsdkHome | Out-Null
+    # Preserve installed tools and cache when updating the release runtime.
+    Remove-Item -Recurse -Force (Join-Path $rsdkHome 'bin'), (Join-Path $rsdkHome 'shell') -ErrorAction SilentlyContinue
+    Remove-Item -Force (Join-Path $rsdkHome 'VERSION'), (Join-Path $rsdkHome 'checksums.txt') -ErrorAction SilentlyContinue
+    Move-Item (Join-Path $tmp 'rsdk/bin'), (Join-Path $tmp 'rsdk/shell'), (Join-Path $tmp 'rsdk/VERSION'), (Join-Path $tmp 'rsdk/checksums.txt') -Destination $rsdkHome
+    Write-Host "Installed rsdk $Version to $rsdkHome"
+} finally { if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp } }
+$module = Join-Path $rsdkHome 'shell/powershell/Rsdk.psd1'
+if (-not $NoModifyShell) {
+    $modify = $Yes
+    if (-not $modify) { $modify = (Read-Host "Configure rsdk in $PROFILE now? [y/N]") -match '^(?i:y|yes)$' }
+    if ($modify) {
+        $profileDirectory = Split-Path -Parent $PROFILE
+        New-Item -ItemType Directory -Force -Path $profileDirectory | Out-Null
+        if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE | Out-Null }
+        $start = '# >>> rsdk initialize >>>'; $end = '# <<< rsdk initialize <<<'
+        $profileText = Get-Content -Path $PROFILE -Raw
+        if ($profileText -match [regex]::Escape($start) -or $profileText -match '(?i)(Import-Module|\.).*rsdk|rsdk.*init') {
+            Write-Host "rsdk initialization already appears in $PROFILE; it was not modified."
+            Write-Host "Standard block:`n$start`nImport-Module '$module' -Force`n$end"
         } else {
-            (New-Object Net.WebClient).DownloadFile($url, $zipPath)
+            Add-Content -Path $PROFILE -Value "`n$start`nImport-Module '$module' -Force`n$end"
         }
-
-        Write-Info "extracting..."
-        Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force
-
-        # Copy entire extracted contents (binary + powershell/ templates) to ~/.rsdk/
-        New-Item -ItemType Directory -Path $RSDK_HOME -Force | Out-Null
-        Get-ChildItem -Path $tmpDir | ForEach-Object {
-            $dst = Join-Path $RSDK_HOME $_.Name
-            if ($_.PSIsContainer) {
-                Copy-Item -Path $_.FullName -Destination $dst -Recurse -Force
-            } else {
-                Copy-Item -Path $_.FullName -Destination $dst -Force
-            }
-        }
-
-        Write-Info "binary installed at $(Join-Path $RSDK_HOME 'rsdk.exe')"
-    } finally {
-        Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
-    }
-}
-
-function Install-Module {
-    # Patch the module template with the absolute binary path and copy
-    # it to every standard PSModulePath that exists.
-    $exePath = Join-Path $RSDK_HOME "rsdk.exe"
-    $moduleSrc = Join-Path $RSDK_HOME "powershell\Rsdk.psm1"
-
-    if (-not (Test-Path $moduleSrc)) {
-        Write-Warn "PowerShell module template not found in release (no pwsh/powershell build?)"
-        return
-    }
-
-    # Read template, patch the placeholder
-    $content = Get-Content -Path $moduleSrc -Raw
-    $content = $content -replace 'PUT_RSDK_PATH_HERE', $exePath
-
-    $installed = $false
-    foreach ($modDir in Get-ModulePath) {
-        $targetDir = Join-Path $modDir "Rsdk"
-        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-        Set-Content -Path (Join-Path $targetDir "Rsdk.psm1") -Value $content
-        Write-Info "PowerShell module: $targetDir\Rsdk.psm1"
-        $installed = $true
-    }
-
-    if ($installed) {
-        Write-Info "PowerShell module installed — restart shell or run: Import-Module Rsdk"
-    }
-}
-
-function Main {
-    $platform = Get-PlatformInfo
-    Write-Info "platform: $($platform.os)-$($platform.arch) ($($platform.target))  home: $RSDK_HOME"
-
-    $exePath = Join-Path $RSDK_HOME "rsdk.exe"
-    if (Test-Path $exePath) {
-        Write-Info "reusing existing binary at $exePath"
-    } else {
-        $url = Get-LatestReleaseUrl $platform.target
-        Install-Binary $url
-    }
-
-    Install-Module
-}
-
-Main
+        Write-Host "Run now: Import-Module '$module' -Force"
+    } else { Write-Host "Shell configuration not modified. Run now: Import-Module '$module' -Force" }
+} else { Write-Host "Shell configuration not modified. Run now: Import-Module '$module' -Force" }

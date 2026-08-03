@@ -1,33 +1,14 @@
-#!/bin/bash
-
-# Function to invoke rsdk and capture environment changes
-function invoke_rsdk() {
-    local command="$1"
-    shift
-    local args=("$@")
-
-    local temp_file
-    temp_file=$(mktemp)
-
-    # Build the argument list with --shell and --envout
-    local argument_list=( "--shell" "bash" "--envout" "$temp_file" "$command" "${args[@]}" )
-
-    if "PUT_RSDK_PATH_HERE" "${argument_list[@]}"; then
-        # Apply environment changes if any were output
-        if [[ -s "$temp_file" ]]; then
-            # Source the temp file to apply any environment variable changes
-            source "$temp_file"
-        fi
-    fi
-
-    rm -f "$temp_file"
-}
-
-# Expose rsdk as a shell function so sourcing this file activates it.
-function rsdk() {
-    if [[ $# -eq 0 ]]; then
-        invoke_rsdk tui
+# Source this file to install the persistent rsdk shell function.
+rsdk() {
+    local temp_file status
+    temp_file="$(mktemp)" || return 1
+    if [ "$#" -eq 0 ]; then
+        "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../bin" && pwd)/rsdk" --shell bash --envout "$temp_file" --help
     else
-        invoke_rsdk "$@"
+        "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../bin" && pwd)/rsdk" --shell bash --envout "$temp_file" "$@"
     fi
+    status=$?
+    [ -s "$temp_file" ] && . "$temp_file"
+    rm -f "$temp_file"
+    return "$status"
 }

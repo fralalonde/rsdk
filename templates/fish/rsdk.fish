@@ -1,29 +1,17 @@
-#!/usr/bin/env fish
-
-# Function to invoke rsdk and capture environment changes
+# Source this file to install the persistent rsdk shell function.
 function rsdk
-    set command $argv[1]
-    set args $argv[2..-1]
-
-    # Default to launching the TUI when no command is given.
-    if test -z "$command"
-        set command tui
+    set -l temp_file (mktemp)
+    or return 1
+    set -l rsdk_binary (dirname (status --current-filename))/../../bin/rsdk
+    if test (count $argv) -eq 0
+        command $rsdk_binary --shell fish --envout $temp_file --help
+    else
+        command $rsdk_binary --shell fish --envout $temp_file $argv
     end
-
-    # Create a temporary file to capture environment variable changes
-    set temp_file (mktemp)
-
-    # Build the argument list with --shell and --envout
-    set argument_list --shell fish --envout $temp_file $command $args
-
-    # Run rsdk directly (not eval — eval breaks terminal control for TUI).
-    "PUT_RSDK_PATH_HERE" $argument_list
-
-    # Apply environment changes if any were output
+    set -l command_status $status
     if test -s $temp_file
         source $temp_file
     end
-
-    # Clean up
     rm -f $temp_file
+    return $command_status
 end
