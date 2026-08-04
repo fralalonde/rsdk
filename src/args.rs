@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 /// CLI Struct for command-line arguments
 #[derive(Parser, Clone)]
-#[command(name = "rsdk", version = "0.1", about = "Rust SDK Manager")]
+#[command(name = "rsdk", version = env!("RSDK_VERSION"), about = "Rust SDK Manager")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Command>,
@@ -110,7 +110,7 @@ pub enum Command {
     #[command(about = "Flush internal caches")]
     Flush {},
 
-    #[command(about = "List installed tools or versions")]
+    #[command(about = "Open text mode graphical interface")]
     Tui,
 
     #[command(about = "Generate shell completions")]
