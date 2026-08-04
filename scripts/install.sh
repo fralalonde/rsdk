@@ -1,5 +1,8 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env sh
+set -eu
+
+# This installer is intentionally POSIX-sh compatible because the documented
+# invocation is `curl ... | sh`. Do not use Bash-only features here.
 
 REPOSITORY="${RSDK_REPOSITORY:-fralalonde/rsdk}"
 RSDK_HOME="${RSDK_HOME:-$HOME/.rsdk}"
@@ -68,15 +71,22 @@ mv "$tmp/unpack/rsdk/bin" "$tmp/unpack/rsdk/shell" "$RSDK_HOME/"
 mv "$tmp/unpack/rsdk/VERSION" "$tmp/unpack/rsdk/checksums.txt" "$RSDK_HOME/"
 printf 'Installed rsdk %s to %s\n' "$VERSION" "$RSDK_HOME"
 
-if [ -z "$TARGET_SHELL" ]; then TARGET_SHELL="${SHELL##*/}"; fi
+if [ -z "$TARGET_SHELL" ]; then TARGET_SHELL="${SHELL:-bash}"; TARGET_SHELL=${TARGET_SHELL##*/}; fi
 case "$TARGET_SHELL" in bash|zsh|fish) ;; *) TARGET_SHELL=bash ;; esac
 if [ "$MODIFY_SHELL" = ask ]; then
-  printf 'Configure rsdk for %s now? [y/N] ' "$TARGET_SHELL"
-  read -r reply || reply=n
+  # The script itself occupies stdin when invoked as `curl ... | sh`. Only
+  # prompt when stdout is a terminal, and read the response from /dev/tty.
+  if [ -t 1 ]; then
+    printf 'Configure rsdk for %s now? [y/N] ' "$TARGET_SHELL" >&2
+    read -r reply < /dev/tty || reply=n
+  else
+    reply=n
+    printf 'No terminal available; shell configuration was not modified.\n' >&2
+  fi
   case "$reply" in y|Y|yes|YES) MODIFY_SHELL=yes ;; *) MODIFY_SHELL=no ;; esac
 fi
 configure_posix() {
-  local shell_name="$1" rc_file loader
+  shell_name="$1"
   if [ "$shell_name" = bash ]; then rc_file="$HOME/.bashrc"; else rc_file="$HOME/.zshrc"; fi
   loader="$RSDK_HOME/shell/$shell_name/rsdk.$shell_name"
   touch "$rc_file"
@@ -93,7 +103,7 @@ EOF
   printf 'Run now: source "%s"\n' "$loader"
 }
 configure_fish() {
-  local fish_loader="$HOME/.config/fish/conf.d/rsdk.fish"
+  fish_loader="$HOME/.config/fish/conf.d/rsdk.fish"
   mkdir -p "$(dirname "$fish_loader")"
   if [ -f "$fish_loader" ] && { grep -Fq '# >>> rsdk initialize >>>' "$fish_loader" || grep -Eiq 'source .*rsdk|rsdk.*init' "$fish_loader"; }; then
     printf 'rsdk initialization already appears in %s; it was not modified.\n' "$fish_loader"
