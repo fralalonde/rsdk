@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
+    event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -240,7 +240,7 @@ enum ModalState {
         version: String,
         progress: Arc<Mutex<Progress>>,
         cancel: Arc<AtomicBool>,
-        done: Arc<Mutex<Option<Result<(ToolVersion, bool)>>>>,
+        done: InstallDone,
     },
     /// Post-install: ask whether to make the new version the default
     /// (only shown when other versions are already installed).
@@ -258,6 +258,12 @@ struct Progress {
     bytes: u64,
     total: u64,
 }
+
+/// Result of an install worker: the installed `ToolVersion` plus whether it
+/// was a new install (as opposed to already present).
+type InstallResult = Result<(ToolVersion, bool)>;
+/// Shared slot where the install worker parks its outcome for the UI thread.
+type InstallDone = Arc<Mutex<Option<InstallResult>>>;
 
 impl Progress {
     fn new() -> Self {
@@ -337,6 +343,11 @@ impl App {
             return Ok(());
         };
         if key.kind != KeyEventKind::Press {
+            return Ok(());
+        }
+        // Ctrl+Q quits from any state (search, modal, navigation).
+        if key.code == KeyCode::Char('q') && key.modifiers == KeyModifiers::CONTROL {
+            self.running = false;
             return Ok(());
         }
         if self.searching {
@@ -997,7 +1008,7 @@ impl App {
             vec![
                 Span::styled(format!("[{pane}] "), Style::default().fg(C_ACCENT)),
                 Span::styled(
-                    "↑↓ navigate  ←→ drill/back  Tab pane  Enter select  type-to-search  Esc quit",
+                    "↑↓ navigate  ←→ drill/back  Tab pane  Enter select  type-to-search  Esc/Ctrl+Q quit",
                     Style::default().fg(C_STATUS_FG),
                 ),
             ]
@@ -1050,11 +1061,8 @@ impl App {
                     .border_style(Style::default().fg(C_PROGRESS));
 
                 let p = progress.lock().map(|p| p.clone()).unwrap_or(Progress::new());
-                let pct = if p.total > 0 {
-                    (p.bytes * 100 / p.total) as u32
-                } else {
-                    0
-                };
+                let pct = p.bytes.checked_div(p.total).unwrap_or(0) as u32;
+
                 // Inner width: area.width minus borders (2) minus padding (2)
                 // minus brackets (2) and surrounding spaces (2).
                 let bar_len = (area.width as u32).saturating_sub(8).max(10);
@@ -1092,7 +1100,7 @@ impl App {
                     .borders(Borders::ALL)
                     .border_type(BorderType::Double)
                     .border_style(Style::default().fg(C_MODAL_BORDER));
-                let items = vec![
+                let items = [
                     Item::new(format!("Yes — make {tool} {version} the default"), false),
                     Item::new("No — keep current default".to_string(), false),
                 ];

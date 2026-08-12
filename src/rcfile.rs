@@ -12,7 +12,7 @@ type Sdkmanrc = HashMap<String, String>;
 pub fn env_apply(home: &RsdkHome) -> color_eyre::Result<()> {
     if let Some(sdkmanrc) = load()? {
         for tv in &sdkmanrc {
-            if !ToolVersion::new(home, &tv.0, &tv.1).is_installed() {
+            if !ToolVersion::new(home, tv.0, tv.1).is_installed() {
                 bail!("Tool {} version {} is not installed, run 'rsdk env install' first.", tv.0, tv.1)
             }
         }

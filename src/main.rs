@@ -93,7 +93,7 @@ fn main() -> color_eyre::Result<()> {
                 }
 
                 cv.uninstall()?;
-                println!("{} {} {}", cli_style::error("Uninstalled"), cli_style::accent(&tool), cli_style::accent(&version));
+                println!("{} {} {}", cli_style::error("Uninstalled"), cli_style::accent(tool), cli_style::accent(version));
 
                 let vv: Vec<_> = rsdk_home.installed_versions(tool)?.collect();
                 match vv.len() {

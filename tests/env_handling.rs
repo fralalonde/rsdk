@@ -193,6 +193,94 @@ fn uninstalling_non_current_keeps_current_symlink() {
     assert_eq!(read_link(&home.current_symlink_path("gradle")), keep.path());
 }
 
+#[test]
+fn uninstalling_missing_version_errors() {
+    let home = test_home();
+    let tv = ToolVersion::new(&home, "gradle", "99.0");
+    let err = tv.uninstall().unwrap_err();
+    assert!(
+        err.to_string().contains("no tool gradle version 99.0"),
+        "got: {err}"
+    );
+}
+
+// --- discovery (list / installed) ------------------------------------------
+
+#[test]
+fn all_installed_lists_versions_across_tools() {
+    let home = test_home();
+    let java = fake_install(&home, "java", "21-tem");
+    let maven = fake_install(&home, "maven", "3.9.9");
+    let gradle = fake_install(&home, "gradle", "8.7");
+
+    let found: Vec<(String, String)> = home
+        .all_installed()
+        .unwrap()
+        .map(|tv| (tv.tool, tv.version))
+        .collect();
+
+    assert!(found.contains(&("java".into(), "21-tem".into())), "got: {found:?}");
+    assert!(found.contains(&("maven".into(), "3.9.9".into())), "got: {found:?}");
+    assert!(found.contains(&("gradle".into(), "8.7".into())), "got: {found:?}");
+    assert_eq!(found.len(), 3, "got: {found:?}");
+    let _ = (java, maven, gradle);
+}
+
+#[test]
+fn all_installed_ignores_symlinks() {
+    // The `current` and `default` symlinks live inside the tool dir and must
+    // never be reported as installed versions.
+    let home = test_home();
+    let tv = fake_install(&home, "java", "21-tem");
+    tv.make_current().unwrap();
+    tv.make_default().unwrap();
+
+    let found: Vec<String> = home
+        .all_installed()
+        .unwrap()
+        .filter(|v| v.tool == "java")
+        .map(|v| v.version)
+        .collect();
+
+    assert_eq!(found, vec!["21-tem".to_string()], "got: {found:?}");
+}
+
+#[test]
+fn installed_versions_filters_to_single_tool() {
+    let home = test_home();
+    fake_install(&home, "java", "21-tem");
+    fake_install(&home, "java", "17-tem");
+    fake_install(&home, "maven", "3.9.9");
+
+    let versions: Vec<String> = home
+        .installed_versions("java")
+        .unwrap()
+        .map(|tv| tv.version)
+        .collect();
+
+    assert_eq!(versions.len(), 2, "got: {versions:?}");
+    assert!(versions.contains(&"21-tem".to_string()));
+    assert!(versions.contains(&"17-tem".to_string()));
+}
+
+#[test]
+fn all_defaults_returns_only_default_versions() {
+    let home = test_home();
+    fake_install(&home, "java", "21-tem").make_default().unwrap();
+    fake_install(&home, "java", "17-tem"); // not default
+    fake_install(&home, "maven", "3.9.9").make_default().unwrap();
+
+    let defaults: Vec<(String, String)> = home
+        .all_defaults()
+        .unwrap()
+        .map(|tv| (tv.tool, tv.version))
+        .collect();
+
+    assert!(defaults.contains(&("java".into(), "21-tem".into())), "got: {defaults:?}");
+    assert!(defaults.contains(&("maven".into(), "3.9.9".into())), "got: {defaults:?}");
+    assert_eq!(defaults.len(), 2, "got: {defaults:?}");
+}
+
 // --- .sdkmanrc env handling -------------------------------------------------
 
 /// Run a closure in a temp working dir, restoring the original cwd after.
@@ -256,6 +344,27 @@ fn env_apply_switches_current_from_sdkmanrc() {
 }
 
 #[test]
+fn env_apply_switches_multiple_tools() {
+    let home = test_home();
+    let java17 = fake_install(&home, "java", "17-tem");
+    let java21 = fake_install(&home, "java", "21-tem");
+    let maven39 = fake_install(&home, "maven", "3.9.9");
+    let maven38 = fake_install(&home, "maven", "3.8.8");
+    java21.make_current().unwrap();
+    maven39.make_current().unwrap();
+
+    in_temp_dir(|dir| {
+        fs::write(dir.join(".sdkmanrc"), "java=17-tem\nmaven=3.8.8\n").unwrap();
+        rcfile::env_apply(&home).unwrap();
+    });
+
+    assert!(java17.is_current());
+    assert!(!java21.is_current());
+    assert!(maven38.is_current());
+    assert!(!maven39.is_current());
+}
+
+#[test]
 fn env_apply_errors_when_tool_not_installed() {
     let home = test_home();
     in_temp_dir(|dir| {
@@ -287,4 +396,16 @@ fn env_clear_restores_default_as_current() {
 
     assert!(default.is_current());
     assert!(!other.is_current());
+}
+
+#[test]
+fn env_clear_with_no_defaults_keeps_current_untouched() {
+    // No defaults configured: env_clear must be a no-op, not clear current.
+    let home = test_home();
+    let tv = fake_install(&home, "java", "21-tem");
+    tv.make_current().unwrap();
+
+    rcfile::env_clear(&home).unwrap();
+
+    assert!(tv.is_current());
 }

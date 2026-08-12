@@ -7,37 +7,31 @@ Escape
 Type "[?62;1;4c"
 Escape
 Type "[?62;1;4c"
-Sleep 1s
-Type "rsdk"
+Sleep 1.5s
+Type "rsd"
+Sleep 500ms
+Type "k tui"
 Sleep 500ms
 Enter
+Sleep 1s
+Down 2
 Sleep 500ms
 Down 3
-Up 2
-Sleep 500ms
 Enter
 Sleep 500ms
-Down 4
-Sleep 1.5s
-Enter
-Sleep 1.5s
-Left
-Sleep 500ms
-Escape
 Down
-Left
-Down 3
 Sleep 500ms
-Enter
-Right
-Sleep 500ms
-Enter
-Sleep 5s
-Enter
-Sleep 1s
 Escape
-Sleep 1s
-Escape 2
+Type "[A"
+Sleep 500ms
+Enter
+Sleep 500ms
+Enter
+Sleep 13.5s
+Escape 4
 Type "[?62;1;4c"
-Sleep 1s
+Sleep 2s
+Ctrl+C
+Sleep 500ms
+Type "exit"
 

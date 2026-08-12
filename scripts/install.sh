@@ -71,6 +71,30 @@ mv "$tmp/unpack/rsdk/bin" "$tmp/unpack/rsdk/shell" "$RSDK_HOME/"
 mv "$tmp/unpack/rsdk/VERSION" "$tmp/unpack/rsdk/checksums.txt" "$RSDK_HOME/"
 printf 'Installed rsdk %s to %s\n' "$VERSION" "$RSDK_HOME"
 
+# v0.5.x keeps adapters under $RSDK_HOME/shell/; older layouts also copied them
+# into ~/.config/fish. Remove leftover copies so a stale fish autoload or
+# completion set cannot shadow the new adapter. Content markers ensure we only
+# delete files this installer previously owned.
+remove_stale_files() {
+  stale=0
+  for stale_file in \
+    "$HOME/.config/fish/functions/rsdk.fish" \
+    "$HOME/.config/fish/functions/rsdk_plugin.fish" \
+    "$HOME/.config/fish/completions/rsdk.fish"; do
+    if [ -f "$stale_file" ] && grep -Eq 'envout|rsdk_plugin|__fish_rsdk' "$stale_file" 2>/dev/null; then
+      rm -f "$stale_file"
+      stale=$((stale + 1))
+    fi
+  done
+  # The very first layout also kept a binary copy at $RSDK_HOME/rsdk.
+  if [ -f "$RSDK_HOME/rsdk" ]; then
+    rm -f "$RSDK_HOME/rsdk"
+    stale=$((stale + 1))
+  fi
+  [ "$stale" -eq 0 ] || printf '✓ Removed %d stale file(s) from a previous rsdk install.\n' "$stale"
+}
+remove_stale_files
+
 if [ -z "$TARGET_SHELL" ]; then TARGET_SHELL="${SHELL:-bash}"; TARGET_SHELL=${TARGET_SHELL##*/}; fi
 case "$TARGET_SHELL" in bash|zsh|fish) ;; *) TARGET_SHELL=bash ;; esac
 if [ "$MODIFY_SHELL" = ask ]; then
@@ -91,33 +115,38 @@ configure_posix() {
   loader="$RSDK_HOME/shell/$shell_name/rsdk.$shell_name"
   touch "$rc_file"
   if grep -Fq '# >>> rsdk initialize >>>' "$rc_file" || grep -Eiq '(^|[[:space:]])(source|\.)[[:space:]].*rsdk|rsdk.*(init|\.bash|\.zsh)' "$rc_file"; then
-    printf 'rsdk initialization already appears in %s; it was not modified.\n' "$rc_file"
-    printf 'Standard block:\n# >>> rsdk initialize >>>\nsource "%s"\n# <<< rsdk initialize <<<\n' "$loader"
-    return
-  fi
-  cat >> "$rc_file" <<EOF
+    printf '✓ rsdk initialization already present in %s; not modified.\n' "$rc_file"
+  else
+    cat >> "$rc_file" <<EOF
 # >>> rsdk initialize >>>
 source "$loader"
 # <<< rsdk initialize <<<
 EOF
-  printf 'Run now: source "%s"\n' "$loader"
+    printf '✓ Configured %s via %s.\n' "$shell_name" "$rc_file"
+  fi
+  printf 'Activate in the current session: source "%s"\n' "$loader"
 }
 configure_fish() {
   fish_loader="$HOME/.config/fish/conf.d/rsdk.fish"
   mkdir -p "$(dirname "$fish_loader")"
   if [ -f "$fish_loader" ] && { grep -Fq '# >>> rsdk initialize >>>' "$fish_loader" || grep -Eiq 'source .*rsdk|rsdk.*init' "$fish_loader"; }; then
-    printf 'rsdk initialization already appears in %s; it was not modified.\n' "$fish_loader"
-    return
-  fi
-  cat > "$fish_loader" <<EOF
+    printf '✓ rsdk initialization already present in %s; not modified.\n' "$fish_loader"
+  else
+    cat > "$fish_loader" <<EOF
 # >>> rsdk initialize >>>
 source "$RSDK_HOME/shell/fish/rsdk.fish"
 # <<< rsdk initialize <<<
 EOF
-  printf 'Run now: source "%s"\n' "$fish_loader"
+    printf '✓ Configured fish via %s.\n' "$fish_loader"
+  fi
+  printf 'Activate in the current session: functions -e rsdk; source "%s"\n' "$fish_loader"
 }
 if [ "$MODIFY_SHELL" = yes ]; then
   if [ "$TARGET_SHELL" = fish ]; then configure_fish; else configure_posix "$TARGET_SHELL"; fi
 else
-  printf 'Shell configuration not modified. Run now: source "%s/shell/%s/rsdk.%s"\n' "$RSDK_HOME" "$TARGET_SHELL" "$TARGET_SHELL"
+  printf 'Shell configuration not modified. Activate manually:\n'
+  case "$TARGET_SHELL" in
+    fish) printf '  source "%s"\n' "$RSDK_HOME/shell/fish/rsdk.fish" ;;
+    *) printf '  source "%s/shell/%s/rsdk.%s"\n' "$RSDK_HOME" "$TARGET_SHELL" "$TARGET_SHELL" ;;
+  esac
 fi
