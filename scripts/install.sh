@@ -103,23 +103,30 @@ remove_stale_files
 # Blank line separates the install phase from the shell-configuration phase.
 printf '\n'
 
-# Detect every shell the user actually uses, based on its config file being
-# present in the home: bash → ~/.bashrc, zsh → ~/.zshrc, fish →
-# ~/.config/fish. A shell without a config file cannot load an adapter, and
-# $SHELL alone is unreliable (a toolbox/container inherits the host's login
-# shell). Fall back to the running shell when nothing is configured yet.
-SHELLS=""
+# Detect every shell the user actually uses: bash/zsh/fish by config-file
+# presence (a shell without a config file cannot load an adapter), nushell by
+# config.nu presence or the nu binary (nu runs fine without a config — it uses
+# defaults — so a missing config.nu must not suppress wiring; configure_nushell
+# creates one). $SHELL alone is unreliable (a toolbox/container inherits the
+# host's login shell). Fall back to the running shell when nothing is
+# configured yet.
+config_shells=""
 for shell_config in "bash:$HOME/.bashrc" "zsh:$HOME/.zshrc" "fish:$HOME/.config/fish" "nushell:$HOME/.config/nushell/config.nu"; do
   shell_name=${shell_config%%:*}
   config_path=${shell_config#*:}
-  [ -e "$config_path" ] && SHELLS="$SHELLS $shell_name"
+  [ -e "$config_path" ] && config_shells="$config_shells $shell_name"
 done
-if [ -z "$SHELLS" ]; then
+SHELLS="$config_shells"
+command -v nu >/dev/null 2>&1 && case " $SHELLS " in
+  *" nushell "*) ;;
+  *) SHELLS="$SHELLS nushell" ;;
+esac
+if [ -z "$config_shells" ]; then
   parent_shell="$(ps -o comm= -p "$PPID" 2>/dev/null | sed -e 's/^-//' -e 's#.*/##')"
   case "$parent_shell" in
-    bash|zsh|fish) SHELLS=" $parent_shell" ;;
-    nu|nushell) SHELLS=" nushell" ;;
-    *) shell_fallback="${SHELL:-bash}"; SHELLS=" ${shell_fallback##*/}" ;;
+    bash|zsh|fish) SHELLS="$SHELLS $parent_shell" ;;
+    nu|nushell) SHELLS="$SHELLS nushell" ;;
+    *) shell_fallback="${SHELL:-bash}"; SHELLS="$SHELLS ${shell_fallback##*/}" ;;
   esac
 fi
 if [ -n "$TARGET_SHELL" ]; then
@@ -157,7 +164,7 @@ source "$loader"
 EOF
     printf '✓ Configured %s via %s.\n' "$shell_name" "$rc_file"
   fi
-  printf 'Activate in the current session: source "%s"\n' "$loader"
+  printf 'Activate in the current session: %ssource "%s"%s\n' "$HILITE" "$loader" "$HILITE_END"
   case "$shell_name" in
     bash)
       install_completions bash "${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions/rsdk"
@@ -184,7 +191,7 @@ source "$RSDK_HOME/shell/fish/rsdk.fish"
 EOF
     printf '✓ Configured fish via %s.\n' "$fish_loader"
   fi
-  printf 'Activate in the current session: functions -e rsdk; source "%s"\n' "$fish_loader"
+  printf 'Activate in the current session: %sfunctions -e rsdk; source "%s"%s\n' "$HILITE" "$fish_loader" "$HILITE_END"
   install_completions fish "$HOME/.config/fish/completions/rsdk.fish"
 }
 # Generate shell completions from the freshly installed binary. Best-effort:
@@ -212,10 +219,14 @@ source "$RSDK_HOME/shell/nushell/rsdk.nu"
 EOF
     printf '✓ Configured nushell via %s.\n' "$nu_config"
   fi
-  printf 'Activate in the current session: source "%s"\n' "$RSDK_HOME/shell/nushell/rsdk.nu"
+  printf 'Activate in the current session: %ssource "%s"%s\n' "$HILITE" "$RSDK_HOME/shell/nushell/rsdk.nu" "$HILITE_END"
 }
+# Bold the optional commands the user may run (activation hints) when stdout
+# is a terminal; piped/CI output stays plain.
+if [ -t 1 ]; then HILITE="$(printf '\033[1m')"; HILITE_END="$(printf '\033[0m')"; else HILITE=""; HILITE_END=""; fi
 if [ "$MODIFY_SHELL" = yes ]; then
   for shell_name in $SHELLS; do
+    printf '\n── %s ──\n' "$shell_name"
     case "$shell_name" in
       fish) configure_fish ;;
       nushell) configure_nushell ;;
@@ -226,9 +237,9 @@ else
   printf 'Shell configuration not modified. Activate manually:\n'
   for shell_name in $SHELLS; do
     case "$shell_name" in
-      fish) printf '  source "%s"\n' "$RSDK_HOME/shell/fish/rsdk.fish" ;;
-      nushell) printf '  source "%s"\n' "$RSDK_HOME/shell/nushell/rsdk.nu" ;;
-      *) printf '  source "%s/shell/%s/rsdk.%s"\n' "$RSDK_HOME" "$shell_name" "$shell_name" ;;
+      fish) printf '  %ssource "%s"%s\n' "$HILITE" "$RSDK_HOME/shell/fish/rsdk.fish" "$HILITE_END" ;;
+      nushell) printf '  %ssource "%s"%s\n' "$HILITE" "$RSDK_HOME/shell/nushell/rsdk.nu" "$HILITE_END" ;;
+      *) printf '  %ssource "%s/shell/%s/rsdk.%s"%s\n' "$HILITE" "$RSDK_HOME" "$shell_name" "$shell_name" "$HILITE_END" ;;
     esac
   done
 fi

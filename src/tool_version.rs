@@ -154,6 +154,10 @@ impl ToolVersion {
         debug!("renaming {:?} to {:?}", entry_path, target_dir);
         fs::rename(&entry_path, target_dir)?;
 
+        // Safety net: both extract paths preserve unix modes when present, but
+        // some vendor JDK archives store files without the executable bit
+        // (SDKMAN chmods post-extraction for the same reason). Keep this so
+        // `java` is always runnable regardless of how the archive was built.
         #[cfg(unix)]
         make_all_files_executable(&self.bin())?;
         Ok(())

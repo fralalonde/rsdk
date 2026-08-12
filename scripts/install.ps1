@@ -6,6 +6,10 @@ param(
     [string]$DownloadBaseUrl = $env:RSDK_DOWNLOAD_BASE_URL
 )
 $ErrorActionPreference = 'Stop'
+# Bold for optional user commands when output is a real terminal; piped/CI
+# output stays plain.
+$bold = ''; $reset = ''
+if (-not [Console]::IsOutputRedirected) { $e = [char]27; $bold = "$e[1m"; $reset = "$e[0m" }
 $repository = if ($env:RSDK_REPOSITORY) { $env:RSDK_REPOSITORY } else { 'fralalonde/rsdk' }
 $rsdkHome = if ($env:RSDK_HOME) { $env:RSDK_HOME } else { Join-Path $HOME '.rsdk' }
 if (-not $Version) {
@@ -39,6 +43,7 @@ try {
 } finally { if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp } }
 $module = Join-Path $rsdkHome 'shell/powershell/Rsdk.psd1'
 if (-not $NoModifyShell) {
+    Write-Host "`n-- powershell --"
     $modify = $Yes
     if (-not $modify) { $modify = (Read-Host "Configure rsdk in $PROFILE now? [y/N]") -match '^(?i:y|yes)$' }
     if ($modify) {
@@ -47,28 +52,34 @@ if (-not $NoModifyShell) {
         if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE | Out-Null }
         $start = '# >>> rsdk initialize >>>'; $end = '# <<< rsdk initialize <<<'
         $profileText = Get-Content -Path $PROFILE -Raw
-        if ($profileText -match [regex]::Escape($start) -or $profileText -match '(?i)(Import-Module|\.).*rsdk|rsdk.*init') {
+        if ($profileText -match [regex]::Escape($start) -or $profileText -match '(?i)(Import-Module|\\.).*rsdk|rsdk.*init') {
             Write-Host "rsdk initialization already appears in $PROFILE; it was not modified."
             Write-Host "Standard block:`n$start`nImport-Module '$module' -Force`n$end"
         } else {
             Add-Content -Path $PROFILE -Value "`n$start`nImport-Module '$module' -Force`n$end"
         }
-        Write-Host "Run now: Import-Module '$module' -Force"
-    } else { Write-Host "Shell configuration not modified. Run now: Import-Module '$module' -Force" }
-} else { Write-Host "Shell configuration not modified. Run now: Import-Module '$module' -Force" }
-# nushell on Windows keeps its config at %APPDATA%\nushell\config.nu. Wire the
-# adapter in when that config exists (no extra prompt; idempotent).
+        Write-Host "Run now: ${bold}Import-Module '$module' -Force${reset}"
+    } else { Write-Host "Shell configuration not modified. Run now: ${bold}Import-Module '$module' -Force${reset}" }
+} else { Write-Host "Shell configuration not modified. Run now: ${bold}Import-Module '$module' -Force${reset}" }
+# nushell on Windows keeps its config at %APPDATA%\nushell\config.nu. nushell
+# runs fine without a config.nu, so detect it via the nu binary too and create
+# the config when needed (idempotent; no extra prompt).
 if (-not $NoModifyShell) {
     $nuConfig = Join-Path $env:APPDATA 'nushell\config.nu'
-    if (Test-Path $nuConfig) {
+    $nuAvailable = $null -ne (Get-Command nu -ErrorAction SilentlyContinue)
+    if ($nuAvailable -or (Test-Path $nuConfig)) {
+        Write-Host "`n-- nushell --"
         $nuStart = '# >>> rsdk initialize >>>'; $nuEnd = '# <<< rsdk initialize <<<'
+        $nuDir = Split-Path -Parent $nuConfig
+        if (-not (Test-Path $nuDir)) { New-Item -ItemType Directory -Force -Path $nuDir | Out-Null }
+        if (-not (Test-Path $nuConfig)) { New-Item -ItemType File -Path $nuConfig | Out-Null }
         $nuText = Get-Content -Path $nuConfig -Raw
         if ($nuText -match [regex]::Escape($nuStart) -or $nuText -match 'source .*rsdk') {
             Write-Host "rsdk initialization already appears in $nuConfig; it was not modified."
         } else {
-            Add-Content -Path $nuConfig -Value "`n$nuStart`nsource `"$rsdkHome\shell\nushell\rsdk.nu`"`n$nuEnd"
+            Add-Content -Path $nuConfig -Value "`n$nuStart`nsource '$rsdkHome\shell\nushell\rsdk.nu'`n$nuEnd"
             Write-Host "Configured nushell via $nuConfig."
         }
-        Write-Host "Activate in the current session: source `"$rsdkHome\shell\nushell\rsdk.nu`""
+        Write-Host "Activate in the current session: ${bold}source '$rsdkHome\shell\nushell\rsdk.nu'${reset}"
     }
 }

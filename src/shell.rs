@@ -1,4 +1,4 @@
-use crate::args;
+use crate::args::{self, Shell};
 use log::{debug, warn};
 use std::fs::OpenOptions;
 use std::io;
@@ -12,20 +12,16 @@ pub fn set_env_var_after_exit(name: &str, value: &str) -> io::Result<()> {
             debug!("setting {} to {}", name, value);
 
             // Emit shell-specific environment variable instructions
-            let set_cmd = match shell.as_str() {
-                "powershell" => format!("$env:{name} = '{value}'"),
-                "bash" | "zsh" | "sh" => format!("export {name}=\"{value}\""),
-                "fish" => format!("set -gx {name} '{value}'"),
+            let set_cmd = match shell {
+                Shell::PowerShell => format!("$env:{name} = '{value}'"),
+                Shell::Bash | Shell::Zsh => format!("export {name}=\"{value}\""),
+                Shell::Fish => format!("set -gx {name} '{value}'"),
                 // nushell cannot evaluate shell statements at runtime, so emit
                 // one nuon record per variable; the adapter merges them and
                 // applies them via `load-env` (PATH is split into a list there).
-                "nushell" => {
+                Shell::Nushell => {
                     let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
                     format!("{{{name}:\"{escaped}\"}}")
-                }
-                _ => {
-                    warn!("Unsupported shell specified: {}", shell);
-                    "".to_string()
                 }
             };
             if args::debug() {

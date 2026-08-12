@@ -12,7 +12,7 @@ pub struct Cli {
     debug: bool,
 
     #[arg(short, long)]
-    shell: Option<String>,
+    shell: Option<Shell>,
 
     #[arg(short, long)]
     envout: Option<String>,
@@ -39,8 +39,8 @@ pub fn insecure() -> bool {
 //     ARGS.get().map(|c| c.offline).unwrap_or(false)
 // }
 
-pub fn shell() -> Option<String> {
-    ARGS.get().and_then(|c| c.shell.clone())
+pub fn shell() -> Option<Shell> {
+    ARGS.get().and_then(|c| c.shell)
 }
 
 pub fn envout() -> Option<String> {

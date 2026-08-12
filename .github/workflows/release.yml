@@ -36,6 +36,15 @@ jobs:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release --target ${{ matrix.target }}
+      - name: Sanity checks (macOS)
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bin="target/${{ matrix.target }}/release/rsdk"
+          "$bin" --version | grep -q 'rsdk '
+          "$bin" --help >/dev/null
+          cargo test
       - name: Assemble release tree
         shell: bash
         run: |

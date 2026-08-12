@@ -8,4 +8,6 @@ if ($module -notmatch '\$PSScriptRoot' -or $module -notmatch 'Export-ModuleMembe
 if ($module -notmatch 'completions powershell' -or $module -notmatch '\$LASTEXITCODE') { throw 'PowerShell module lacks binary-generated completions registration.' }
 $installer = Get-Content (Join-Path $root 'scripts/install.ps1') -Raw
 if ($installer -notmatch '\[switch\]\$Yes' -or $installer -notmatch '\[switch\]\$NoModifyShell' -or $installer -notmatch '# >>> rsdk initialize >>>') { throw 'PowerShell installer lacks noninteractive managed-profile support.' }
+if ($installer -notmatch 'Get-Command nu') { throw 'PowerShell installer lacks nushell binary detection.' }
+if ($installer -notmatch "source '\`$rsdkHome") { throw 'PowerShell installer must single-quote the nushell source path (nu processes backslash escapes in double-quoted strings).' }
 Write-Host 'PowerShell release installer static checks passed'

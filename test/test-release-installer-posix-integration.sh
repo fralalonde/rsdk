@@ -73,13 +73,18 @@ assert_contains "$MULTI/.config/fish/completions/rsdk.fish" '__fish_rsdk' 'fish 
 assert_contains "$MULTI/.local/share/bash-completion/completions/rsdk" '_rsdk' 'bash completions installed'
 assert_contains "$MULTI/.zsh/completions/_rsdk" '#compdef' 'zsh completions installed'
 
-echo '== only ~/.bashrc -> only bash =='
+echo '== only ~/.bashrc -> only bash (+nushell if nu installed) =='
 ONLYBASH="$WORK/home-onlybash"
 mkdir -p "$ONLYBASH"
 : > "$ONLYBASH/.bashrc"
 run_install "$ONLYBASH"
 assert_contains "$ONLYBASH/.bashrc" 'rsdk initialize' 'bashrc configured'
 assert_missing "$ONLYBASH/.config/fish/conf.d/rsdk.fish" 'fish left untouched'
+if command -v nu >/dev/null 2>&1; then
+  assert_contains "$ONLYBASH/.config/nushell/config.nu" 'rsdk initialize' 'nushell wired via nu binary (no config.nu)'
+else
+  assert_missing "$ONLYBASH/.config/nushell/config.nu" 'nushell untouched (no nu binary)'
+fi
 
 echo '== no config files + bash parent -> fallback bash =='
 NONE="$WORK/home-none"
@@ -139,6 +144,26 @@ if command -v zsh >/dev/null 2>&1; then
   esac
 else
   echo 'skip zsh e2e (zsh not installed)'
+fi
+
+echo '== shell adapters apply env after use (per available shell) =='
+mkdir -p "$MULTI/.rsdk/tools/java/21.0.6-tem/bin"
+EXPECTED_JAVA_HOME="$MULTI/.rsdk/tools/java/21.0.6-tem"
+if command -v bash >/dev/null 2>&1; then
+  jh=$(HOME="$MULTI" bash -c 'source "$HOME/.rsdk/shell/bash/rsdk.bash"; rsdk use java 21.0.6-tem >/dev/null 2>&1; printf "%s" "$JAVA_HOME"')
+  [ "$jh" = "$EXPECTED_JAVA_HOME" ] && ok 'bash adapter applies JAVA_HOME' || fail "bash adapter: JAVA_HOME=$jh"
+fi
+if command -v zsh >/dev/null 2>&1; then
+  jh=$(HOME="$MULTI" zsh -f -c 'source "$HOME/.rsdk/shell/zsh/rsdk.zsh"; rsdk use java 21.0.6-tem >/dev/null 2>&1; print -r -- "$JAVA_HOME"')
+  [ "$jh" = "$EXPECTED_JAVA_HOME" ] && ok 'zsh adapter applies JAVA_HOME' || fail "zsh adapter: JAVA_HOME=$jh"
+fi
+if command -v fish >/dev/null 2>&1; then
+  jh=$(HOME="$MULTI" fish -c 'source "$HOME/.rsdk/shell/fish/rsdk.fish"; rsdk use java 21.0.6-tem >/dev/null 2>&1; echo "$JAVA_HOME"')
+  [ "$jh" = "$EXPECTED_JAVA_HOME" ] && ok 'fish adapter applies JAVA_HOME' || fail "fish adapter: JAVA_HOME=$jh"
+fi
+if command -v nu >/dev/null 2>&1; then
+  jh=$(HOME="$MULTI" nu -c "source \"$MULTI/.rsdk/shell/nushell/rsdk.nu\"; rsdk use java 21.0.6-tem; print \$env.JAVA_HOME")
+  [ "$jh" = "$EXPECTED_JAVA_HOME" ] && ok 'nushell adapter applies JAVA_HOME' || fail "nushell adapter: JAVA_HOME=$jh"
 fi
 
 if [ "$failures" -gt 0 ]; then

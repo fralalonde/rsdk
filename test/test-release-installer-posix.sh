@@ -40,6 +40,7 @@ nu_adapter="$(cat "$ROOT/templates/nushell/rsdk.nu")"
 
 check_contains "$installer" 'shell/nushell/rsdk.nu' 'installer requires the nushell adapter in the release archive'
 check_contains "$installer" 'nushell:$HOME/.config/nushell/config.nu' 'installer detects nushell via config.nu'
+check_contains "$installer" 'command -v nu' 'installer also detects nushell via the nu binary'
 check_contains "$installer" 'configure_nushell' 'installer has a nushell configuration function'
 check_contains "$installer" '# >>> rsdk initialize >>>' 'installer writes the standard init block'
 check_contains "$installer" 'remove_stale_files' 'installer removes legacy adapter files'
