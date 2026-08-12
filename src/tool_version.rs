@@ -1,21 +1,21 @@
-use std::fs::{create_dir_all};
+use crate::rsdk_home::RsdkHome;
+use crate::{sdkman_client, shell};
+use eyre::bail;
+use log::debug;
 use std::fmt::{Display, Formatter};
 use std::fs;
+use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
-use eyre::{bail};
-use log::{debug};
 use symlink::remove_symlink_dir;
-use crate::{sdkman_client, shell};
-use crate::rsdk_home::RsdkHome;
 
-use crate::cache::CacheEntry;
 use crate::archive::{extract_tgz, extract_zip};
+use crate::cache::CacheEntry;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
 #[cfg(unix)]
-use std::{io};
+use std::io;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct ToolVersion {
@@ -51,7 +51,11 @@ impl ToolVersion {
         home_env(&self.tool)
     }
 
-    pub fn install(home: &RsdkHome, tool: &String, version : &Option<String>) -> color_eyre::Result<(ToolVersion, bool)> {
+    pub fn install(
+        home: &RsdkHome,
+        tool: &String,
+        version: &Option<String>,
+    ) -> color_eyre::Result<(ToolVersion, bool)> {
         let api = sdkman_client::SdkManClient::new(&home.cache());
         let version = match version {
             None => api.get_default_version(tool)?,
@@ -98,7 +102,12 @@ impl ToolVersion {
         Ok((tv, true))
     }
 
-    fn install_from_file(&self, archive: &CacheEntry, work_dir: &Path, force: bool) -> color_eyre::Result<()> {
+    fn install_from_file(
+        &self,
+        archive: &CacheEntry,
+        work_dir: &Path,
+        force: bool,
+    ) -> color_eyre::Result<()> {
         if let Err(e) = extract_zip(&archive.file_path(), work_dir) {
             debug!("file is not a zip: {:?}", e);
             if let Err(e) = extract_tgz(&archive.file_path(), work_dir) {
@@ -115,7 +124,11 @@ impl ToolVersion {
             .collect::<Vec<_>>();
 
         if entries.len() != 1 {
-            bail!(format!("Expected exactly one entry in {:?}, found {}", work_dir, entries.len()));
+            bail!(format!(
+                "Expected exactly one entry in {:?}, found {}",
+                work_dir,
+                entries.len()
+            ));
         }
 
         let entry = &entries[0];

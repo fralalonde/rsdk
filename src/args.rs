@@ -1,5 +1,5 @@
-use std::sync::OnceLock;
 use clap::{Parser, Subcommand, ValueEnum};
+use std::sync::OnceLock;
 
 /// CLI Struct for command-line arguments
 #[derive(Parser, Clone)]
@@ -19,7 +19,6 @@ pub struct Cli {
 
     // #[arg(short, long)]
     // offline: bool,
-
     #[arg(long)]
     insecure: bool,
 }
@@ -63,21 +62,13 @@ pub enum Command {
     },
 
     #[command(about = "Uninstall a specific version of a tool")]
-    Uninstall {
-        tool: String,
-        version: String,
-    },
+    Uninstall { tool: String, version: String },
 
     #[command(about = "Alias for uninstall")]
-    Remove {
-        tool: String,
-        version: String,
-    },
+    Remove { tool: String, version: String },
 
     #[command(about = "Show the currently active version of a tool")]
-    Current {
-        tool: Option<String>,
-    },
+    Current { tool: Option<String> },
 
     #[command(about = "Manage tool-specific environment variables")]
     Env {
@@ -86,14 +77,10 @@ pub enum Command {
     },
 
     #[command(about = "List available tools or versions")]
-    List {
-        tool: Option<String>,
-    },
+    List { tool: Option<String> },
 
     #[command(about = "List installed tools or versions")]
-    Installed {
-        tool: Option<String>,
-    },
+    Installed { tool: Option<String> },
 
     #[command(about = "Set or show the default version for a tool")]
     Default {

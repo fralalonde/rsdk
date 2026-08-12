@@ -219,9 +219,18 @@ fn all_installed_lists_versions_across_tools() {
         .map(|tv| (tv.tool, tv.version))
         .collect();
 
-    assert!(found.contains(&("java".into(), "21-tem".into())), "got: {found:?}");
-    assert!(found.contains(&("maven".into(), "3.9.9".into())), "got: {found:?}");
-    assert!(found.contains(&("gradle".into(), "8.7".into())), "got: {found:?}");
+    assert!(
+        found.contains(&("java".into(), "21-tem".into())),
+        "got: {found:?}"
+    );
+    assert!(
+        found.contains(&("maven".into(), "3.9.9".into())),
+        "got: {found:?}"
+    );
+    assert!(
+        found.contains(&("gradle".into(), "8.7".into())),
+        "got: {found:?}"
+    );
     assert_eq!(found.len(), 3, "got: {found:?}");
     let _ = (java, maven, gradle);
 }
@@ -266,9 +275,13 @@ fn installed_versions_filters_to_single_tool() {
 #[test]
 fn all_defaults_returns_only_default_versions() {
     let home = test_home();
-    fake_install(&home, "java", "21-tem").make_default().unwrap();
+    fake_install(&home, "java", "21-tem")
+        .make_default()
+        .unwrap();
     fake_install(&home, "java", "17-tem"); // not default
-    fake_install(&home, "maven", "3.9.9").make_default().unwrap();
+    fake_install(&home, "maven", "3.9.9")
+        .make_default()
+        .unwrap();
 
     let defaults: Vec<(String, String)> = home
         .all_defaults()
@@ -276,8 +289,14 @@ fn all_defaults_returns_only_default_versions() {
         .map(|tv| (tv.tool, tv.version))
         .collect();
 
-    assert!(defaults.contains(&("java".into(), "21-tem".into())), "got: {defaults:?}");
-    assert!(defaults.contains(&("maven".into(), "3.9.9".into())), "got: {defaults:?}");
+    assert!(
+        defaults.contains(&("java".into(), "21-tem".into())),
+        "got: {defaults:?}"
+    );
+    assert!(
+        defaults.contains(&("maven".into(), "3.9.9".into())),
+        "got: {defaults:?}"
+    );
     assert_eq!(defaults.len(), 2, "got: {defaults:?}");
 }
 

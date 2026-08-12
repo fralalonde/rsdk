@@ -10,16 +10,20 @@ pub fn decode_versions(versions: &str) -> Vec<String> {
                 sepcount > 1 && sepcount < 3
             }
         })
-        .map(|l| l.split(" ")
-            .filter(|x| !x.trim().is_empty())
-            .collect::<Vec<_>>())
+        .map(|l| {
+            l.split(" ")
+                .filter(|x| !x.trim().is_empty())
+                .collect::<Vec<_>>()
+        })
         .filter(|v| !v.is_empty())
         .collect();
 
     let mut vervec = Vec::new();
     'vv: loop {
         for v in &mut vertab {
-            if v.is_empty() { break 'vv; }
+            if v.is_empty() {
+                break 'vv;
+            }
             vervec.push(v.remove(0).to_string());
         }
     }
@@ -39,13 +43,11 @@ pub fn decode_java_versions(versions: &str) -> Vec<String> {
             } else if l.starts_with("===") {
                 eq_lines += 1;
                 false
-            } else  {
+            } else {
                 dash_lines == 1 && eq_lines < 3
             }
         })
-        .map(|l| l.split("|")
-            .map(|x| x.trim())
-            .collect::<Vec<_>>())
+        .map(|l| l.split("|").map(|x| x.trim()).collect::<Vec<_>>())
         .filter(|v| !v.is_empty())
         .collect();
 

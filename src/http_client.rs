@@ -1,17 +1,19 @@
+use color_eyre::Result;
 use eyre::{Context, ContextCompat};
-use color_eyre::{Result};
 use log::debug;
 use reqwest::blocking::Client;
 use reqwest::header;
 
+use crate::args;
+use crate::cache::{CacheEntry, CacheManager};
+use crate::http_utils::{
+    extract_filename_from_disposition, initialize_progress_bar, read_proxy_from_env,
+};
 use std::fs::File;
 use std::io::{Read, Write};
-use std::path::{Path};
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use crate::args;
-use crate::cache::{CacheManager,  CacheEntry};
-use crate::http_utils::{extract_filename_from_disposition, initialize_progress_bar, read_proxy_from_env};
 
 pub struct CachedHttpClient {
     cache: CacheManager,
@@ -48,7 +50,7 @@ impl CachedHttpClient {
         debug!("Getting file for {url}");
         let mut entry = self.cache.get_cache_entry(url);
 
-       if !entry.is_valid() {
+        if !entry.is_valid() {
             debug!("Downloading file");
             let name = self.download_to_file(url, &entry.file_path())?;
             entry.metadata.file_name = name;
@@ -73,7 +75,8 @@ impl CachedHttpClient {
         let mut entry = self.cache.get_cache_entry(url);
 
         if !entry.is_valid() {
-            let name = self.download_to_file_monitored(url, &entry.file_path(), on_progress, cancel)?;
+            let name =
+                self.download_to_file_monitored(url, &entry.file_path(), on_progress, cancel)?;
             entry.metadata.file_name = name;
             entry.save()?;
         } else {
@@ -86,20 +89,30 @@ impl CachedHttpClient {
     }
 
     fn download_to_file(&self, url: &str, file_path: &Path) -> Result<String> {
-        let head_response = self.client.head(url).send().context("Failed to send HEAD request")?;
+        let head_response = self
+            .client
+            .head(url)
+            .send()
+            .context("Failed to send HEAD request")?;
         let headers = head_response.headers().clone();
-        let total_size = headers.get(header::CONTENT_LENGTH)
+        let total_size = headers
+            .get(header::CONTENT_LENGTH)
             .and_then(|len| len.to_str().ok()?.parse::<u64>().ok())
             .context("Failed to get content length")?;
 
-        let file_name = headers.get(header::CONTENT_DISPOSITION)
+        let file_name = headers
+            .get(header::CONTENT_DISPOSITION)
             .and_then(|value| extract_filename_from_disposition(value.to_str().ok()?))
             .unwrap_or("")
             .to_string();
 
         let pb = initialize_progress_bar(total_size, &file_name);
 
-        let mut response = self.client.get(url).send().context("Failed to send GET request")?;
+        let mut response = self
+            .client
+            .get(url)
+            .send()
+            .context("Failed to send GET request")?;
         debug!("HTTP response status {}", response.status());
         if response.status() == 304 {
             return Ok(file_name);
@@ -168,4 +181,3 @@ impl CachedHttpClient {
         Ok(file_name)
     }
 }
-

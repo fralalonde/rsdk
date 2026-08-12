@@ -1,9 +1,9 @@
-use std::path::{Path};
-use std::str;
-use color_eyre::{Result};
+use crate::cache::CacheEntry;
+use crate::http_client::CachedHttpClient;
 use crate::sdkman_decode::{decode_java_versions, decode_versions};
-use crate::cache::{CacheEntry};
-use crate::http_client::{CachedHttpClient};
+use color_eyre::Result;
+use std::path::Path;
+use std::str;
 
 #[cfg(target_os = "windows")]
 pub static PLATFORM: &str = "windowsx64";
@@ -55,7 +55,8 @@ impl SdkManClient {
     }
 
     pub fn get_tools(&self) -> Result<Vec<String>> {
-        Ok(self.get_tools_text()?
+        Ok(self
+            .get_tools_text()?
             .split(",")
             .map(|v| v.to_string())
             .collect())
@@ -63,7 +64,9 @@ impl SdkManClient {
 
     pub fn get_tool_versions_text(&self, tool: &str) -> Result<String> {
         let platform = &self.platform;
-        self.get_text(&format!("/candidates/{tool}/{platform}/versions/list?installed="))
+        self.get_text(&format!(
+            "/candidates/{tool}/{platform}/versions/list?installed="
+        ))
     }
 
     pub fn get_tool_versions(&self, tool: &str) -> Result<Vec<String>> {
@@ -71,7 +74,7 @@ impl SdkManClient {
 
         let versions = match tool {
             "java" => decode_java_versions(&versions),
-            _ => decode_versions(&versions)
+            _ => decode_versions(&versions),
         };
         Ok(versions)
     }
@@ -82,7 +85,10 @@ impl SdkManClient {
 
     pub fn get_cached_file(&self, tool: &str, version: &str) -> Result<CacheEntry> {
         let platform = &self.platform;
-        let url = format!("{}/broker/download/{tool}/{version}/{platform}", self.base_url);
+        let url = format!(
+            "{}/broker/download/{tool}/{version}/{platform}",
+            self.base_url
+        );
         self.http_client.get_cached_file(&url)
     }
 
@@ -95,7 +101,10 @@ impl SdkManClient {
         cancel: &std::sync::atomic::AtomicBool,
     ) -> Result<CacheEntry> {
         let platform = &self.platform;
-        let url = format!("{}/broker/download/{tool}/{version}/{platform}", self.base_url);
+        let url = format!(
+            "{}/broker/download/{tool}/{version}/{platform}",
+            self.base_url
+        );
         self.http_client
             .get_cached_file_monitored(&url, on_progress, cancel)
     }
@@ -106,4 +115,3 @@ impl SdkManClient {
         self.get_text(&format!("/hooks/post/{tool}/{version}/{platform}"))
     }
 }
-

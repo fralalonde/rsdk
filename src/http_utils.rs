@@ -1,6 +1,6 @@
-use std::env;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::debug;
+use std::env;
 
 pub fn extract_filename_from_disposition(content_disposition: &str) -> Option<&str> {
     content_disposition

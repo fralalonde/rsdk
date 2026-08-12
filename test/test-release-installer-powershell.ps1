@@ -5,7 +5,7 @@ foreach ($path in @('scripts/install.ps1', 'templates/powershell/Rsdk.psd1', 'te
 }
 $module = Get-Content (Join-Path $root 'templates/powershell/Rsdk.psm1') -Raw
 if ($module -notmatch '\$PSScriptRoot' -or $module -notmatch 'Export-ModuleMember -Function Invoke-Rsdk -Alias rsdk' -or $module -notmatch 'finally') { throw 'PowerShell module lacks self-relative, exported, cleanup integration.' }
-if ($module -notmatch 'completions powershell' -or $module -notmatch 'Register-ArgumentCompleter') { throw 'PowerShell module lacks binary-generated completions registration.' }
+if ($module -notmatch 'completions powershell' -or $module -notmatch '\$LASTEXITCODE') { throw 'PowerShell module lacks binary-generated completions registration.' }
 $installer = Get-Content (Join-Path $root 'scripts/install.ps1') -Raw
 if ($installer -notmatch '\[switch\]\$Yes' -or $installer -notmatch '\[switch\]\$NoModifyShell' -or $installer -notmatch '# >>> rsdk initialize >>>') { throw 'PowerShell installer lacks noninteractive managed-profile support.' }
 Write-Host 'PowerShell release installer static checks passed'

@@ -1,9 +1,8 @@
-use std::fs::{File};
-use std::{fs, io};
+use flate2::bufread::GzDecoder;
+use log::debug;
+use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use flate2::bufread::{GzDecoder};
-use log::debug;
 use tar::Archive;
 use zip::ZipArchive;
 
@@ -28,26 +27,46 @@ pub fn extract_zip(file: &Path, work_dir: &Path) -> color_eyre::Result<()> {
     debug!("unzipping");
     let archive_file = File::open(file)?;
     let mut archive = ZipArchive::new(archive_file)?;
-    for i in 0..archive.len() {
-        let mut zip_entry = archive.by_index(i)?;
-        let outpath = work_dir.join(zip_entry.name());
-
-        // Create directories as needed
-        if zip_entry.is_dir() {
-            debug!("creating dir {:?}", outpath);
-            fs::create_dir_all(&outpath)?;
-        } else {
-            if let Some(parent) = outpath.parent() {
-                if !parent.exists() {
-                    debug!("creating parent dir {:?}", parent);
-                    fs::create_dir_all(parent)?;
-                }
-            }
-            debug!("creating file {:?}", outpath);
-            let mut outfile = File::create(&outpath)?;
-            debug!("writing file {:?}", outpath);
-            io::copy(&mut zip_entry, &mut outfile)?;
-        }
-    }
+    archive.extract(work_dir)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn extract_zip_deflate_roundtrip() {
+        let tmp = std::env::temp_dir().join(format!("rsdk-ziptest-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+
+        let zip_path = tmp.join("test.zip");
+        {
+            let file = File::create(&zip_path).unwrap();
+            let mut w = zip::ZipWriter::new(file);
+            let opts = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Deflated);
+            w.start_file("hello.txt", opts).unwrap();
+            w.write_all(b"hello zip").unwrap();
+            let opts = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Deflated);
+            w.start_file("sub/nested.txt", opts).unwrap();
+            w.write_all(b"nested file").unwrap();
+            w.finish().unwrap();
+        }
+
+        let out = tmp.join("out");
+        extract_zip(&zip_path, &out).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(out.join("hello.txt")).unwrap(),
+            "hello zip"
+        );
+        assert_eq!(
+            std::fs::read_to_string(out.join("sub/nested.txt")).unwrap(),
+            "nested file"
+        );
+        std::fs::remove_dir_all(&tmp).unwrap();
+    }
 }

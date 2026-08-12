@@ -1,13 +1,13 @@
 mod cli_style;
 mod tui;
 
-use std::{env, fs, io};
-use std::io::Write;
 use clap::{CommandFactory, Parser};
 use eyre::bail;
 use log::debug;
 use rsdk::args::{Cli, Command, EnvSubcommand, Shell, ARGS};
-use rsdk::{args, rcfile, rsdk_home, shell, sdkman_client, tool_version::ToolVersion};
+use rsdk::{args, rcfile, rsdk_home, sdkman_client, shell, tool_version::ToolVersion};
+use std::io::Write;
+use std::{env, fs, io};
 
 const RUST_LOG: &str = "RUST_LOG";
 const RUST_BACKTRACE: &str = "RUST_BACKTRACE";
@@ -38,12 +38,21 @@ fn main() -> color_eyre::Result<()> {
                 // `current` symlink is what `use` / `env` flip, so PATH never
                 // needs to be rewritten after this (same model as SDKMAN).
                 for default_version in default_tools {
-                    let current_bin = default_version.path().parent()
+                    let current_bin = default_version
+                        .path()
+                        .parent()
                         .map(|tool_dir| tool_dir.join("current").join("bin"))
                         .expect("tool version path has a tool dir parent");
                     paths.push(current_bin);
-                    debug!("setting env var {:?} to {:?}", default_version.home(), default_version.path());
-                    shell::set_env_var_after_exit(&default_version.home(), &default_version.path().to_string_lossy())?;
+                    debug!(
+                        "setting env var {:?} to {:?}",
+                        default_version.home(),
+                        default_version.path()
+                    );
+                    shell::set_env_var_after_exit(
+                        &default_version.home(),
+                        &default_version.path().to_string_lossy(),
+                    )?;
                 }
 
                 let path = env::var_os("PATH").unwrap_or_default();
@@ -56,29 +65,54 @@ fn main() -> color_eyre::Result<()> {
                 debug!("updating PATH to {:?}", new_path);
                 shell::set_env_var_after_exit("PATH", &new_path.to_string_lossy())?;
             }
-            Command::Install { tool, version, default } => {
+            Command::Install {
+                tool,
+                version,
+                default,
+            } => {
                 let (tv, new_install) = ToolVersion::install(&rsdk_home, tool, version)?;
                 if !new_install {
-                    println!("{} {} {}", cli_style::info("Tool"), cli_style::accent(&tv.tool), cli_style::accent(&tv.version));
+                    println!(
+                        "{} {} {}",
+                        cli_style::info("Tool"),
+                        cli_style::accent(&tv.tool),
+                        cli_style::accent(&tv.version)
+                    );
                     println!("{}", cli_style::dim("was already installed"));
                 }
 
                 let vv: Vec<_> = rsdk_home.installed_versions(tool)?.collect();
                 match vv.len() {
-                    0 => panic!("just installed {} version {} yet no versions detected?!", tv.tool, tv.version),
+                    0 => panic!(
+                        "just installed {} version {} yet no versions detected?!",
+                        tv.tool, tv.version
+                    ),
                     1 => {
                         tv.make_default()?;
                         tv.make_current()?;
                     }
                     _ => {
-                        if *default || ask(&format!("Do you want to make {tool} {} the new default? (Y/n): ", tv.version), true) {
+                        if *default
+                            || ask(
+                                &format!(
+                                    "Do you want to make {tool} {} the new default? (Y/n): ",
+                                    tv.version
+                                ),
+                                true,
+                            )
+                        {
                             tv.make_default()?;
                             tv.make_current()?;
                         }
                     }
                 }
                 if new_install {
-                    println!("{} {} {}", cli_style::star("Installed"), cli_style::accent(&tv.tool), cli_style::accent(&tv.version));
+                    println!(
+                        "{} {} {}",
+                        cli_style::star("Installed"),
+                        cli_style::accent(&tv.tool),
+                        cli_style::accent(&tv.version)
+                    );
                 }
             }
             Command::Uninstall { tool, version } | Command::Remove { tool, version } => {
@@ -93,7 +127,12 @@ fn main() -> color_eyre::Result<()> {
                 }
 
                 cv.uninstall()?;
-                println!("{} {} {}", cli_style::error("Uninstalled"), cli_style::accent(tool), cli_style::accent(version));
+                println!(
+                    "{} {} {}",
+                    cli_style::error("Uninstalled"),
+                    cli_style::accent(tool),
+                    cli_style::accent(version)
+                );
 
                 let vv: Vec<_> = rsdk_home.installed_versions(tool)?.collect();
                 match vv.len() {
@@ -110,7 +149,13 @@ fn main() -> color_eyre::Result<()> {
                             new_cv.make_current()?;
                         }
                         if was_default {
-                            println!("{} {} {} {}", cli_style::default_(&new_cv.tool), cli_style::accent(&new_cv.version), cli_style::info("is the new"), cli_style::default_("default"))
+                            println!(
+                                "{} {} {} {}",
+                                cli_style::default_(&new_cv.tool),
+                                cli_style::accent(&new_cv.version),
+                                cli_style::info("is the new"),
+                                cli_style::default_("default")
+                            )
                         }
                     }
                 }
@@ -208,12 +253,24 @@ fn main() -> color_eyre::Result<()> {
                         tv.make_current()?;
                     } else {
                         // SDKMAN offers to install a missing version on `use`.
-                        if ask(&format!("{tool} {version} is not installed, install it now? (Y/n): "), true) {
-                            let (tv, _) = ToolVersion::install(&rsdk_home, tool, &Some(version.clone()))?;
+                        if ask(
+                            &format!("{tool} {version} is not installed, install it now? (Y/n): "),
+                            true,
+                        ) {
+                            let (tv, _) =
+                                ToolVersion::install(&rsdk_home, tool, &Some(version.clone()))?;
                             tv.make_current()?;
-                            println!("{} {} {}", cli_style::star("Installed"), cli_style::accent(&tv.tool), cli_style::accent(&tv.version));
+                            println!(
+                                "{} {} {}",
+                                cli_style::star("Installed"),
+                                cli_style::accent(&tv.tool),
+                                cli_style::accent(&tv.version)
+                            );
                         } else {
-                            eprintln!("{}", cli_style::error(&format!("'{tool} {version}' is not installed")));
+                            eprintln!(
+                                "{}",
+                                cli_style::error(&format!("'{tool} {version}' is not installed"))
+                            );
                         }
                     }
                 } else {
@@ -247,11 +304,27 @@ fn main() -> color_eyre::Result<()> {
                 // a broken-pipe panic instead of exiting quietly.
                 let mut buf = Vec::new();
                 match shell {
-                    Shell::Bash => clap_complete::generate(clap_complete::shells::Bash, cmd, &name, &mut buf),
-                    Shell::Fish => clap_complete::generate(clap_complete::shells::Fish, cmd, &name, &mut buf),
-                    Shell::Zsh => clap_complete::generate(clap_complete::shells::Zsh, cmd, &name, &mut buf),
-                    Shell::PowerShell => clap_complete::generate(clap_complete::shells::PowerShell, cmd, &name, &mut buf),
-                    Shell::Nushell => clap_complete::generate(clap_complete_nushell::Nushell, cmd, &name, &mut buf),
+                    Shell::Bash => {
+                        clap_complete::generate(clap_complete::shells::Bash, cmd, &name, &mut buf)
+                    }
+                    Shell::Fish => {
+                        clap_complete::generate(clap_complete::shells::Fish, cmd, &name, &mut buf)
+                    }
+                    Shell::Zsh => {
+                        clap_complete::generate(clap_complete::shells::Zsh, cmd, &name, &mut buf)
+                    }
+                    Shell::PowerShell => clap_complete::generate(
+                        clap_complete::shells::PowerShell,
+                        cmd,
+                        &name,
+                        &mut buf,
+                    ),
+                    Shell::Nushell => clap_complete::generate(
+                        clap_complete_nushell::Nushell,
+                        cmd,
+                        &name,
+                        &mut buf,
+                    ),
                 }
                 let _ = std::io::stdout().write_all(&buf);
             }

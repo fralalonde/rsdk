@@ -5,7 +5,7 @@ work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 version=9.9.9
 mirror="$work/mirror"; mkdir -p "$mirror"
 stage="$work/stage/rsdk"
-mkdir -p "$stage/bin" "$stage/shell"/{bash,zsh,fish,powershell}
+mkdir -p "$stage/bin" "$stage/shell"/{bash,zsh,fish,nushell,powershell}
 cat > "$stage/bin/rsdk" <<'EOF'
 #!/usr/bin/env sh
 while [ "$#" -gt 0 ]; do
@@ -16,9 +16,10 @@ EOF
 chmod +x "$stage/bin/rsdk"
 for s in bash zsh fish; do cp "$repo_root/templates/$s/rsdk.$s" "$stage/shell/$s/rsdk.$s"; done
 cp "$repo_root/templates/fish/rsdk_plugin.fish" "$stage/shell/fish/rsdk_plugin.fish"
+cp "$repo_root/templates/nushell/rsdk.nu" "$stage/shell/nushell/rsdk.nu"
 cp "$repo_root/templates/powershell/Rsdk.psd1" "$repo_root/templates/powershell/Rsdk.psm1" "$stage/shell/powershell/"
 printf '%s\n' "$version" > "$stage/VERSION"
-(cd "$stage" && sha256sum bin/* shell/bash/* shell/zsh/* shell/fish/* shell/powershell/* VERSION > checksums.txt)
+(cd "$stage" && sha256sum bin/* shell/bash/* shell/zsh/* shell/fish/* shell/nushell/* shell/powershell/* VERSION > checksums.txt)
 tar -C "$work/stage" -czf "$mirror/rsdk-$version-linux-x86_64.tar.gz" rsdk
 tar -tzf "$mirror/rsdk-$version-linux-x86_64.tar.gz" | grep -Fx 'rsdk/shell/powershell/Rsdk.psm1'
 tar -tzf "$mirror/rsdk-$version-linux-x86_64.tar.gz" | grep -Fx 'rsdk/shell/fish/rsdk_plugin.fish'

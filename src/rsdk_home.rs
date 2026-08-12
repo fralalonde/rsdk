@@ -1,8 +1,8 @@
-use fs::create_dir_all;
-use std::{fs, io};
-use std::path::{PathBuf};
-use directories::UserDirs;
 use crate::tool_version::{resolve_symlink, ToolVersion};
+use directories::UserDirs;
+use fs::create_dir_all;
+use std::path::PathBuf;
+use std::{fs, io};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RsdkHome {
@@ -70,20 +70,21 @@ impl RsdkHome {
             .find(|path| path.is_dir() && path.starts_with(&tool_dir))
     }
 
-    pub fn installed_versions<'a>(&'a self, tool: &'a str) -> color_eyre::Result<impl Iterator<Item=ToolVersion> + 'a> {
+    pub fn installed_versions<'a>(
+        &'a self,
+        tool: &'a str,
+    ) -> color_eyre::Result<impl Iterator<Item = ToolVersion> + 'a> {
         Ok(self
             .all_installed()?
             .filter(|version| version.tool.eq(tool)))
     }
 
     /// Used at init time
-    pub fn all_defaults(&self) -> color_eyre::Result<impl Iterator<Item=ToolVersion> + '_> {
-        Ok(self
-            .all_installed()?
-            .filter(|version| version.is_default()))
+    pub fn all_defaults(&self) -> color_eyre::Result<impl Iterator<Item = ToolVersion> + '_> {
+        Ok(self.all_installed()?.filter(|version| version.is_default()))
     }
 
-    pub fn all_installed(&self) -> color_eyre::Result<impl Iterator<Item=ToolVersion> + '_> {
+    pub fn all_installed(&self) -> color_eyre::Result<impl Iterator<Item = ToolVersion> + '_> {
         let tools_dir = self.tools();
 
         let tool_iter = fs::read_dir(tools_dir)?

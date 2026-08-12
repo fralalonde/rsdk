@@ -1,10 +1,10 @@
-use color_eyre::{Result};
+use color_eyre::Result;
 
-use std::fs::File;
-use std::path::{Path, PathBuf};
 use log::debug;
 use serde::Serialize;
 use serde_derive::Deserialize;
+use std::fs::File;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct CacheEntry {
@@ -54,7 +54,9 @@ impl CacheManager {
         let url_hash = format!("{:x}", md5::compute(url));
         let cache_path = self.cache_dir.join(&url_hash);
         let meta_path = cache_path.with_extension("meta");
-        let metadata: Metadata = meta_path.exists().then_some(meta_path)
+        let metadata: Metadata = meta_path
+            .exists()
+            .then_some(meta_path)
             .and_then(|path| File::open(path).ok())
             .and_then(|file| serde_ini::from_read(&file).ok())
             .unwrap_or_default();

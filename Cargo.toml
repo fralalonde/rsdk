@@ -8,30 +8,28 @@ clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 directories = "6"
 log = "0.4"
-env_logger = "0.11"
+env_logger = { version = "0.11", default-features = false, features = ["auto-color"] }
 symlink = "0.1"
 eyre = "0.6"
 color-eyre = "0.6"
-colored = "2"
+colored = "3"
 #anyhow = "1.0"
-indicatif = "0.17"
-sha = "1"
-md5 = "0.7"
+indicatif = "0.18"
+md5 = "0.8"
 # Use rustls (pure-Rust TLS) instead of the default native-tls/openssl so the
 # binary stays self-contained and doesn't need system OpenSSL dev libraries.
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "gzip", "rustls-tls"] }
-zip = "2"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+zip = { version = "8", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 tar = "0.4"
-flate2 = "1"
-tempfile = "3"
+flate2 = { version = "1", default-features = false, features = ["zlib-rs"] }
 
 serde_ini = "0.2"
 serde_derive = "1"
 serde = { version = "1.0.213", features = ["derive"] }
 
 
-crossterm = "0.28.1"
-ratatui = { version = "0.29", features = ["all-widgets"] }
+crossterm = "0.29"
+ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 clap_complete_nushell = "4.6.2"
 
 [dev-dependencies]

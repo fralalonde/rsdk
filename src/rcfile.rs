@@ -1,9 +1,9 @@
+use crate::rsdk_home::RsdkHome;
+use crate::tool_version::ToolVersion;
+use eyre::bail;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
-use eyre::bail;
-use crate::rsdk_home::RsdkHome;
-use crate::tool_version::{ToolVersion};
 
 pub const SDKMAN_RC: &str = ".sdkmanrc";
 
@@ -13,7 +13,11 @@ pub fn env_apply(home: &RsdkHome) -> color_eyre::Result<()> {
     if let Some(sdkmanrc) = load()? {
         for tv in &sdkmanrc {
             if !ToolVersion::new(home, tv.0, tv.1).is_installed() {
-                bail!("Tool {} version {} is not installed, run 'rsdk env install' first.", tv.0, tv.1)
+                bail!(
+                    "Tool {} version {} is not installed, run 'rsdk env install' first.",
+                    tv.0,
+                    tv.1
+                )
             }
         }
         for tv in sdkmanrc {
@@ -48,7 +52,9 @@ pub fn env_install(home: &RsdkHome) -> color_eyre::Result<()> {
 }
 
 pub fn env_clear(home: &RsdkHome) -> color_eyre::Result<()> {
-    for tv in home.all_defaults()? { tv.make_current()? }
+    for tv in home.all_defaults()? {
+        tv.make_current()?
+    }
     Ok(())
 }
 
