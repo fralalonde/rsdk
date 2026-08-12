@@ -130,6 +130,17 @@ else
   echo 'skip nushell e2e (nu not installed)'
 fi
 
+echo '== zsh adapter e2e (skipped if zsh missing) =='
+if command -v zsh >/dev/null 2>&1; then
+  out=$(cd "$WORK" && HOME="$MULTI" zsh -f -c 'source "$HOME/.rsdk/shell/zsh/rsdk.zsh"; rsdk --version' 2>&1)
+  case "$out" in
+    *rsdk*) ok "zsh adapter runs the binary from a foreign cwd ($out)" ;;
+    *) fail "zsh adapter: got '$out'" ;;
+  esac
+else
+  echo 'skip zsh e2e (zsh not installed)'
+fi
+
 if [ "$failures" -gt 0 ]; then
   printf '%s integration check(s) failed\n' "$failures" >&2
   tail -20 "$WORK/last.log" >&2
