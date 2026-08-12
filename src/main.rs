@@ -242,12 +242,18 @@ fn main() -> color_eyre::Result<()> {
             Command::Completions { shell } => {
                 let cmd = &mut Cli::command();
                 let name = cmd.get_name().to_string();
+                // Buffer first, then write: clap_complete panics on write
+                // errors, so `rsdk completions fish | head` would abort with
+                // a broken-pipe panic instead of exiting quietly.
+                let mut buf = Vec::new();
                 match shell {
-                    Shell::Bash => clap_complete::generate(clap_complete::shells::Bash, cmd, &name, &mut std::io::stdout()),
-                    Shell::Fish => clap_complete::generate(clap_complete::shells::Fish, cmd, &name, &mut std::io::stdout()),
-                    Shell::Zsh => clap_complete::generate(clap_complete::shells::Zsh, cmd, &name, &mut std::io::stdout()),
-                    Shell::PowerShell => clap_complete::generate(clap_complete::shells::PowerShell, cmd, &name, &mut std::io::stdout()),
+                    Shell::Bash => clap_complete::generate(clap_complete::shells::Bash, cmd, &name, &mut buf),
+                    Shell::Fish => clap_complete::generate(clap_complete::shells::Fish, cmd, &name, &mut buf),
+                    Shell::Zsh => clap_complete::generate(clap_complete::shells::Zsh, cmd, &name, &mut buf),
+                    Shell::PowerShell => clap_complete::generate(clap_complete::shells::PowerShell, cmd, &name, &mut buf),
+                    Shell::Nushell => clap_complete::generate(clap_complete_nushell::Nushell, cmd, &name, &mut buf),
                 }
+                let _ = std::io::stdout().write_all(&buf);
             }
         }
     } else {

@@ -27,7 +27,7 @@ try {
         if ($expected -and (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant() -ne $expected.ToLowerInvariant()) { throw 'Archive checksum does not match checksums.txt.' }
     } catch [System.Net.WebException] { }
     Expand-Archive -Path $archive -DestinationPath $tmp -Force
-    foreach ($relative in @('bin/rsdk.exe','shell/bash/rsdk.bash','shell/zsh/rsdk.zsh','shell/fish/rsdk.fish','shell/powershell/Rsdk.psd1','shell/powershell/Rsdk.psm1','VERSION','checksums.txt')) {
+    foreach ($relative in @('bin/rsdk.exe','shell/bash/rsdk.bash','shell/zsh/rsdk.zsh','shell/fish/rsdk.fish','shell/nushell/rsdk.nu','shell/powershell/Rsdk.psd1','shell/powershell/Rsdk.psm1','VERSION','checksums.txt')) {
         if (-not (Test-Path (Join-Path $tmp "rsdk/$relative"))) { throw "Release archive is missing rsdk/$relative" }
     }
     New-Item -ItemType Directory -Force -Path $rsdkHome | Out-Null
@@ -56,3 +56,19 @@ if (-not $NoModifyShell) {
         Write-Host "Run now: Import-Module '$module' -Force"
     } else { Write-Host "Shell configuration not modified. Run now: Import-Module '$module' -Force" }
 } else { Write-Host "Shell configuration not modified. Run now: Import-Module '$module' -Force" }
+# nushell on Windows keeps its config at %APPDATA%\nushell\config.nu. Wire the
+# adapter in when that config exists (no extra prompt; idempotent).
+if (-not $NoModifyShell) {
+    $nuConfig = Join-Path $env:APPDATA 'nushell\config.nu'
+    if (Test-Path $nuConfig) {
+        $nuStart = '# >>> rsdk initialize >>>'; $nuEnd = '# <<< rsdk initialize <<<'
+        $nuText = Get-Content -Path $nuConfig -Raw
+        if ($nuText -match [regex]::Escape($nuStart) -or $nuText -match 'source .*rsdk') {
+            Write-Host "rsdk initialization already appears in $nuConfig; it was not modified."
+        } else {
+            Add-Content -Path $nuConfig -Value "`n$nuStart`nsource `"$rsdkHome\shell\nushell\rsdk.nu`"`n$nuEnd"
+            Write-Host "Configured nushell via $nuConfig."
+        }
+        Write-Host "Activate in the current session: source `"$rsdkHome\shell\nushell\rsdk.nu`""
+    }
+}

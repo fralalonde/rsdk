@@ -42,6 +42,10 @@ if [[ -z "$increment" ]]; then
     exit 1
 fi
 
+# Sanity gate: the tree must compile before any version/tag manipulation.
+echo "→ Running cargo check..."
+cargo check
+
 # Get latest tag or default to v0.0.0
 latest_tag="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -n 1)"
 latest_tag="${latest_tag:-v0.0.0}"

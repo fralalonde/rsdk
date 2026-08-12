@@ -41,11 +41,12 @@ jobs:
         run: |
           set -euo pipefail
           root="stage/rsdk"
-          mkdir -p "$root/bin" "$root/shell/bash" "$root/shell/zsh" "$root/shell/fish"
+          mkdir -p "$root/bin" "$root/shell/bash" "$root/shell/zsh" "$root/shell/fish" "$root/shell/nushell"
           if [ "${{ matrix.platform }}" = windows ]; then cp "target/${{ matrix.target }}/release/rsdk.exe" "$root/bin/rsdk.exe"; else cp "target/${{ matrix.target }}/release/rsdk" "$root/bin/rsdk"; fi
           cp templates/bash/rsdk.bash "$root/shell/bash/rsdk.bash"
           cp templates/zsh/rsdk.zsh "$root/shell/zsh/rsdk.zsh"
           cp templates/fish/*.fish "$root/shell/fish/"
+          cp templates/nushell/rsdk.nu "$root/shell/nushell/rsdk.nu"
           if [ "${{ matrix.platform }}" = windows ]; then mkdir -p "$root/shell/powershell"; cp templates/powershell/Rsdk.psd1 templates/powershell/Rsdk.psm1 "$root/shell/powershell/"; fi
           printf '%s\n' "${GITHUB_REF_NAME#v}" > "$root/VERSION"
           if command -v sha256sum >/dev/null 2>&1; then
@@ -53,7 +54,7 @@ jobs:
           else
             checksum() { shasum -a 256 "$@"; }
           fi
-          (cd "$root" && checksum bin/* shell/bash/* shell/zsh/* shell/fish/* VERSION > checksums.txt && if [ -d shell/powershell ]; then checksum shell/powershell/* >> checksums.txt; fi)
+          (cd "$root" && checksum bin/* shell/bash/* shell/zsh/* shell/fish/* shell/nushell/* VERSION > checksums.txt && if [ -d shell/powershell ]; then checksum shell/powershell/* >> checksums.txt; fi)
       - name: Archive release tree
         shell: bash
         run: |
@@ -62,13 +63,53 @@ jobs:
           if [ "${{ matrix.extension }}" = zip ]; then (cd stage && 7z a "../$name.zip" rsdk); else tar -C stage -czf "$name.tar.gz" rsdk; fi
       # Every archive has this root layout: rsdk/bin/rsdk.exe (Windows) or rsdk/bin/rsdk,
       # rsdk/shell/bash/rsdk.bash, rsdk/shell/zsh/rsdk.zsh, rsdk/shell/fish/rsdk.fish,
-      # rsdk/shell/powershell/Rsdk.psd1, rsdk/shell/powershell/Rsdk.psm1, and rsdk/VERSION.
+      # rsdk/shell/nushell/rsdk.nu, rsdk/shell/powershell/Rsdk.psd1 (Windows only),
+      # rsdk/shell/powershell/Rsdk.psm1 (Windows only), and rsdk/VERSION.
       - uses: actions/upload-artifact@v4
         with:
           name: rsdk-${{ matrix.platform }}-${{ matrix.arch }}
           path: rsdk-*-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.extension }}
+  test:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            platform: linux
+          - runner: windows-2022
+            platform: windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Installer tests are platform-specific: POSIX scripts on Linux (they
+      # self-skip elsewhere), PowerShell on Windows, none on macOS (assumed
+      # identical to Linux).
+      - name: Installer tests (POSIX)
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          sh test/test-release-installer-posix.sh
+          sh test/test-release-installer-posix-integration.sh
+      - name: Build binary for PowerShell integration test
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: cargo build --release
+      - name: Prepare installed-binary fixture
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.rsdk"
+          cp target/release/rsdk.exe "$HOME/.rsdk/rsdk.exe"
+      - name: Installer tests (PowerShell)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          ./test/test-release-installer-powershell.ps1
+          ./test/test-release-installer-powershell-integration.ps1
   release:
-    needs: build
+    needs: [build, test]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4

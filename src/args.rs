@@ -125,7 +125,9 @@ pub enum Shell {
     Bash,
     Fish,
     Zsh,
+    #[value(name = "powershell")]
     PowerShell,
+    Nushell,
 }
 
 #[derive(Subcommand, Clone)]

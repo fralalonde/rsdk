@@ -1,4 +1,4 @@
-//! Minimal CLI styling mirroring the TUI palette (`src/tui.rs`), built on
+//! Minimal CLI styling mirroring the TUI palette (`src/tui/theme.rs`), built on
 //! the popular `colored` crate so call sites stay terse (e.g.
 //! `cli_style::star("*")`, `cli_style::accent(&tool)`).
 //!

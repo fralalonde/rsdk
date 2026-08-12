@@ -5,7 +5,7 @@
 `rsdk` is an alternative _client_ to the excellent [SDKMAN](https://sdkman.io/) JVM tool manager.
 It still relies on SDKMAN servers, indexes and downloads.
 
-`rsdk` natively integrates with bash, zsh, **powershell**, and **fish** shells, on Windows, Linux and Mac, no external plugins required.
+`rsdk` natively integrates with bash, zsh, **powershell**, **fish**, and **nushell** shells, on Windows, Linux and Mac, no external plugins required.
 
 `rsdk` provides a TUI in a addition to the classic command-line interface.
 
@@ -22,7 +22,7 @@ It still relies on SDKMAN servers, indexes and downloads.
 The installer scripts are attached to each GitHub Release. The URLs below
 fetch the latest published release.
 
-### Linux / macOS (bash, zsh, fish)
+### Linux / macOS (bash, zsh, fish, nushell)
 
 ```bash
 curl -fsSL https://github.com/fralalonde/rsdk/releases/latest/download/install.sh | sh
@@ -38,6 +38,23 @@ irm https://github.com/fralalonde/rsdk/releases/latest/download/install.ps1 | ie
 
 This downloads the prebuilt `rsdk.exe` to `$HOME\.rsdk\` and installs the
 PowerShell module.
+
+### Shell completions
+
+Completions are generated from the installed binary:
+
+- **bash, zsh, fish** — the installer generates and wires them automatically
+  when you accept shell configuration (bash → `bash-completion/completions`,
+  zsh → `~/.zsh/completions/_rsdk`, fish → `~/.config/fish/completions/`).
+  For zsh, make sure `~/.zsh/completions` is on your `fpath` **before**
+  `compinit` runs.
+- **powershell** — the module registers tab-completions automatically on
+  `Import-Module` (generated from the installed binary, so always in sync).
+- **nushell** — manual only: `rsdk completions nushell` generates a completion
+  module; `use` it from `config.nu` **instead of** the adapter's `source` line
+  (the function def and the completion extern cannot both define `rsdk`).
+
+Regenerate manually at any time with `rsdk completions <shell>`.
 
 ### Notes
 
