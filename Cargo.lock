@@ -1742,7 +1742,7 @@ dependencies = [
 
 [[package]]
 name = "rsdk"
-version = "0.5.8"
+version = "0.6.0"
 dependencies = [
  "clap",
  "clap_complete",
