@@ -158,9 +158,12 @@ impl App {
         let Some(modal) = &self.modal else { return };
         match modal {
             ModalState::Actions { items, state, .. } => {
-                // Height = items + top/bottom border (2) + small padding (2).
-                let h = (items.len() as u16) + 4;
-                let area = centered_rect_fixed(40, h, f.area());
+                // Content-sized: width fits the longest action label, height
+                // fits the item count (plus borders and a little breathing
+                // room) so a single "Install" item doesn't open a huge box.
+                let w = (items_line_width(items) + 6).clamp(16, 70);
+                let h = items.len() as u16 + 2;
+                let area = centered_rect_fixed(w, h, f.area());
                 f.render_widget(Clear, area);
                 let block = Block::default()
                     .borders(Borders::ALL)
@@ -182,7 +185,9 @@ impl App {
                 progress,
                 ..
             } => {
-                let area = centered_rect(60, 25, f.area());
+                // Content-sized: a fixed-width progress bar, a blank line, and
+                // the cancel hint (the tool/version rides in the title).
+                let area = centered_rect_fixed(48, 5, f.area());
                 f.render_widget(Clear, area);
                 let block = Block::default()
                     .title(Span::styled(
@@ -197,7 +202,11 @@ impl App {
                     .lock()
                     .map(|p| p.clone())
                     .unwrap_or(Progress::new());
-                let pct = p.bytes.checked_div(p.total).unwrap_or(0) as u32;
+                let pct = p
+                    .bytes
+                    .saturating_mul(100)
+                    .checked_div(p.total)
+                    .unwrap_or(0) as u32;
 
                 // Inner width: area.width minus borders (2) minus padding (2)
                 // minus brackets (2) and surrounding spaces (2).
@@ -233,7 +242,15 @@ impl App {
                 version,
                 state,
             } => {
-                let area = centered_rect(55, 30, f.area());
+                let items = [
+                    Item::new(format!("Yes — make {tool} {version} the default"), false),
+                    Item::new("No — keep current default".to_string(), false),
+                ];
+                // Content-sized: width fits the longer option, height fits the
+                // two options (plus borders and breathing room).
+                let w = (items_line_width(&items) + 6).clamp(20, 80);
+                let h = items.len() as u16 + 2;
+                let area = centered_rect_fixed(w, h, f.area());
                 f.render_widget(Clear, area);
                 let block = Block::default()
                     .title(Span::styled(
@@ -245,10 +262,6 @@ impl App {
                     .borders(Borders::ALL)
                     .border_type(BorderType::Double)
                     .border_style(Style::default().fg(C_MODAL_BORDER));
-                let items = [
-                    Item::new(format!("Yes — make {tool} {version} the default"), false),
-                    Item::new("No — keep current default".to_string(), false),
-                ];
                 let list = List::new(
                     items
                         .iter()
@@ -260,7 +273,10 @@ impl App {
                 f.render_stateful_widget(list, area, &mut state.clone());
             }
             ModalState::Done { msg, is_error } => {
-                let area = centered_rect(50, 20, f.area());
+                // Content-sized: width fits the message, height fits one line.
+                let w = (msg.chars().count() as u16 + 6).clamp(16, 70);
+                let h = 3;
+                let area = centered_rect_fixed(w, h, f.area());
                 f.render_widget(Clear, area);
                 let color = if *is_error { C_ERROR } else { C_STAR };
                 let block = Block::default()
@@ -282,24 +298,18 @@ impl App {
     }
 }
 
-/// Returns a centered rect of width% and height% of `r`.
-fn centered_rect(width_pct: u16, height_pct: u16, r: Rect) -> Rect {
-    let pop = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage((100 - height_pct) / 2),
-            Constraint::Percentage(height_pct),
-            Constraint::Percentage((100 - height_pct) / 2),
-        ])
-        .split(r);
-    Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage((100 - width_pct) / 2),
-            Constraint::Percentage(width_pct),
-            Constraint::Percentage((100 - width_pct) / 2),
-        ])
-        .split(pop[1])[1]
+/// Longest rendered line width among `items`: the 2-char star/indent prefix,
+/// the name, plus any ` (current)` / ` (default)` tags.
+fn items_line_width(items: &[Item]) -> u16 {
+    items
+        .iter()
+        .map(|i| {
+            2 + i.name.chars().count() as u16
+                + if i.is_current { 10 } else { 0 }
+                + if i.is_default { 10 } else { 0 }
+        })
+        .max()
+        .unwrap_or(0)
 }
 
 /// Centered rect with absolute width (chars) and height (lines).

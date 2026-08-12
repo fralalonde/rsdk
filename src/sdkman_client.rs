@@ -28,9 +28,13 @@ pub struct SdkManClient {
 
 impl SdkManClient {
     pub fn new(cache_dir: &Path) -> Self {
+        // Allow overriding the API base (used by the VHS demo and offline
+        // tests); defaults to the real SDKMAN API.
+        let base_url = std::env::var("RSDK_API_BASE_URL")
+            .unwrap_or_else(|_| "https://api.sdkman.io/2".to_string());
         Self {
             http_client: CachedHttpClient::new(cache_dir),
-            base_url: "https://api.sdkman.io/2".to_string(),
+            base_url,
             platform: PLATFORM,
         }
     }

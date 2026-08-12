@@ -13,6 +13,10 @@ test-installer:
 	sh test/test-release-installer-posix.sh
 	sh test/test-release-installer-posix-integration.sh
 
+# Regenerate docs/demo.gif from demo/demo.tape (deterministic: local mock API)
+demo:
+	sh demo/generate.sh
+
 format:
 	cargo fmt
 
