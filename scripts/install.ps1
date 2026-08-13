@@ -57,6 +57,7 @@ if (-not $NoModifyShell) {
             Write-Host "Standard block:`n$start`nImport-Module '$module' -Force`n$end"
         } else {
             Add-Content -Path $PROFILE -Value "`n$start`nImport-Module '$module' -Force`n$end"
+            Write-Host "✓ Configured PowerShell via $PROFILE."
         }
         Write-Host "Run now: ${bold}Import-Module '$module' -Force${reset}"
     } else { Write-Host "Shell configuration not modified. Run now: ${bold}Import-Module '$module' -Force${reset}" }
@@ -77,7 +78,7 @@ if (-not $NoModifyShell) {
         if ($nuText -match [regex]::Escape($nuStart) -or $nuText -match 'source .*rsdk') {
             Write-Host "rsdk initialization already appears in $nuConfig; it was not modified."
         } else {
-            Add-Content -Path $nuConfig -Value "`n$nuStart`nsource '$rsdkHome\shell\nushell\rsdk.nu'`n$nuEnd"
+            Add-Content -Path $nuConfig -Value "`n$nuStart`n`$env.RSDK_HOME = '$rsdkHome'`nsource '$rsdkHome\shell\nushell\rsdk.nu'`n$nuEnd"
             Write-Host "Configured nushell via $nuConfig."
         }
         Write-Host "Activate in the current session: ${bold}source '$rsdkHome\shell\nushell\rsdk.nu'${reset}"

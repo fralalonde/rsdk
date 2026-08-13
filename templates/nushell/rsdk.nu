@@ -1,6 +1,8 @@
 # Source this file to install the persistent rsdk shell function.
-# The binary is resolved relative to this file (shell/nushell/ -> ../../bin)
-# at load time, so the function keeps working after a reinstall.
+# The binary is resolved from $env.RSDK_HOME (set by the installer in
+# config.nu) because nushell does not reliably expose the path of a file
+# sourced from config.nu on Windows ($env.FILE_PWD is empty there). When
+# sourced directly (no config.nu), fall back to $env.FILE_PWD.
 #
 # `--wrapped` passes unknown flags (e.g. `rsdk --version`, subcommand flags)
 # through to the binary instead of failing at parse time. Environment changes
@@ -8,7 +10,11 @@
 # at runtime. Shell completions are available separately via
 # `rsdk completions nushell` (they conflict with this def, so use one or the
 # other).
-let rsdk_binary = ($env.FILE_PWD | path join ".." ".." "bin" "rsdk")
+let rsdk_binary = if 'RSDK_HOME' in $env {
+    ($env.RSDK_HOME | path join 'bin' 'rsdk')
+} else {
+    ($env.FILE_PWD | path join '..' '..' 'bin' 'rsdk')
+}
 
 def --env --wrapped rsdk [...args: string] {
     let temp_file = (mktemp)

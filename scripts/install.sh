@@ -214,6 +214,7 @@ configure_nushell() {
     cat >> "$nu_config" <<EOF
 
 # >>> rsdk initialize >>>
+\$env.RSDK_HOME = '$RSDK_HOME'
 source "$RSDK_HOME/shell/nushell/rsdk.nu"
 # <<< rsdk initialize <<<
 EOF

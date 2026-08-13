@@ -42,6 +42,7 @@ check_contains "$installer" 'shell/nushell/rsdk.nu' 'installer requires the nush
 check_contains "$installer" 'nushell:$HOME/.config/nushell/config.nu' 'installer detects nushell via config.nu'
 check_contains "$installer" 'command -v nu' 'installer also detects nushell via the nu binary'
 check_contains "$installer" 'configure_nushell' 'installer has a nushell configuration function'
+check_contains "$installer" 'env.RSDK_HOME' 'installer writes RSDK_HOME for the nushell adapter'
 check_contains "$installer" '# >>> rsdk initialize >>>' 'installer writes the standard init block'
 check_contains "$installer" 'remove_stale_files' 'installer removes legacy adapter files'
 check_contains "$installer" 'install_completions' 'installer generates shell completions'
@@ -53,7 +54,8 @@ check_contains "$zsh_adapter" 'envout' 'zsh adapter uses the env-capture wrapper
 check_contains "$fish_adapter" 'envout' 'fish adapter uses the env-capture wrapper'
 check_contains "$nu_adapter" '--wrapped' 'nushell adapter passes unknown flags through'
 check_contains "$nu_adapter" 'load-env' 'nushell adapter applies env via load-env'
-check_contains "$nu_adapter" 'FILE_PWD' 'nushell adapter resolves the binary from its own path'
+check_contains "$nu_adapter" 'RSDK_HOME' 'nushell adapter resolves the binary from RSDK_HOME'
+check_contains "$nu_adapter" 'FILE_PWD' 'nushell adapter falls back to FILE_PWD when sourced directly'
 
 if [ "$failures" -gt 0 ]; then
   printf '%s static check(s) failed\n' "$failures" >&2
