@@ -10,11 +10,12 @@ function Invoke-Rsdk {
     try {
         $argumentList = @('--shell', 'powershell', '--envout', $temporaryFile.FullName, $Command) + @($Arguments)
         & $script:RsdkBinary @argumentList
-        $exitCode = $LASTEXITCODE
         if ((Test-Path -LiteralPath $temporaryFile.FullName) -and (Get-Item -LiteralPath $temporaryFile.FullName).Length -gt 0) {
             Invoke-Expression (Get-Content -LiteralPath $temporaryFile.FullName -Raw)
         }
-        return $exitCode
+        # No `return $exitCode`: it would emit the exit code to the pipeline
+        # (printed after the command output). `$LASTEXITCODE` already reflects
+        # the binary's status — the cmdlets above don't touch it.
     } finally {
         Remove-Item -LiteralPath $temporaryFile.FullName -Force -ErrorAction SilentlyContinue
     }

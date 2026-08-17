@@ -1,7 +1,17 @@
 #!/usr/bin/env zsh
+# Build and install rsdk from source for zsh. Mirrors what the release
+# installer does for zsh (scripts/install.sh `configure_posix zsh`), but
+# uses the local build + templates instead of downloading a release archive.
+#
+# Usage: ./dev/install-zsh [--debug]
 
-# Build the executable using cargo
-if [[ "$1" == "--debug" ]]; then
+set -eu
+
+cd "${0:A:h}/.."
+
+RSDK_HOME="${RSDK_HOME:-$HOME/.rsdk}"
+
+if [[ "${1:-}" == "--debug" ]]; then
     cargo build
     rsdk_exe="target/debug/rsdk"
 else
@@ -9,22 +19,36 @@ else
     rsdk_exe="target/release/rsdk"
 fi
 
-rsdk_home=~/.rsdk
-rsdk_bin="$rsdk_home"/bin
+mkdir -p "$RSDK_HOME/bin" "$RSDK_HOME/shell/zsh"
+cp -f "$rsdk_exe" "$RSDK_HOME/bin/rsdk"
+chmod +x "$RSDK_HOME/bin/rsdk"
+cp -f templates/zsh/rsdk.zsh "$RSDK_HOME/shell/zsh/rsdk.zsh"
 
-rm -rf "$rsdk_bin"
-mkdir -p "$rsdk_bin"
+rc_file="$HOME/.zshrc"
+loader="$RSDK_HOME/shell/zsh/rsdk.zsh"
+touch "$rc_file"
+if grep -Fq '# >>> rsdk initialize >>>' "$rc_file"; then
+    printf '✓ rsdk initialization already present in %s; not modified.\n' "$rc_file"
+else
+    cat >> "$rc_file" <<EOF
 
-cp $rsdk_exe "$rsdk_bin"
-rsdk_exe="$rsdk_bin"/rsdk
+# >>> rsdk initialize >>>
+source "$loader"
+# <<< rsdk initialize <<<
+EOF
+    printf '✓ Configured zsh via %s.\n' "$rc_file"
+fi
 
-template_src=templates/zsh/rsdk.zsh
-template_dst=$rsdk_bin/rsdk.zsh
+comp_file="$HOME/.zsh/completions/_rsdk"
+mkdir -p "$(dirname "$comp_file")"
+if "$RSDK_HOME/bin/rsdk" completions zsh > "$comp_file" 2>/dev/null; then
+    printf '✓ Installed zsh completions: %s\n' "$comp_file"
+else
+    printf '⚠ Could not generate zsh completions\n' >&2
+fi
+# zsh only loads the file when its directory is on fpath before compinit.
+if ! grep -Eq 'fpath=.*\.zsh/completions|\.zsh/completions.*fpath' "$rc_file" 2>/dev/null; then
+    printf '→ Add ~/.zsh/completions to fpath before compinit to load zsh completions.\n'
+fi
 
-cat $template_src | sed "s|PUT_RSDK_PATH_HERE|$rsdk_exe|g" > "$template_dst"
-
-# Output completion message
-echo "Installed rsdk bash to $rsdk_home"
-echo
-echo "Run 'source $template_dst init' to activate rsdk now"
-echo "Run 'echo \"source $template_dst init'\" >> ~/.zshrc' to make it permanent"
+printf '\nActivate in the current session: source "%s"\n' "$loader"

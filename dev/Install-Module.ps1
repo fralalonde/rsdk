@@ -1,53 +1,54 @@
-# Install PowerShell module locally
-param (
-    [switch]$Debug = $false  # Default to release mode if not specified
-)
+param([switch]$Debug)
 
-$ModuleName = "Rsdk"
-$SourceDirectory = "templates\\powershell"
+# Build and install rsdk from source for PowerShell. Mirrors what the release
+# installer does for PowerShell (scripts/install.ps1), but uses the local
+# build + templates instead of downloading a release archive.
+#
+# Usage: .\dev\Install-Module.ps1 [-Debug]
 
-# Build the executable using cargo
-if ($Debug) {
-    & cargo build
-    $ExePath = "target\\debug\\rsdk.exe"
+$ErrorActionPreference = 'Stop'
+
+$repoRoot = Split-Path -Parent $PSScriptRoot
+Push-Location $repoRoot
+try {
+    if ($Debug) {
+        cargo build
+        $targetDir = 'target/debug'
+    } else {
+        cargo build --release
+        $targetDir = 'target/release'
+    }
+} finally {
+    Pop-Location
+}
+
+$rsdkHome = if ($env:RSDK_HOME) { $env:RSDK_HOME } else { Join-Path $HOME '.rsdk' }
+
+# Install binary + module templates (mirror the release layout).
+$binDir = Join-Path $rsdkHome 'bin'
+$moduleDir = Join-Path $rsdkHome 'shell/powershell'
+New-Item -ItemType Directory -Force -Path $binDir, $moduleDir | Out-Null
+
+# cargo names the binary `rsdk` on non-Windows; the module expects `rsdk.exe`.
+$builtExe = Join-Path $targetDir 'rsdk.exe'
+if (-not (Test-Path $builtExe)) { $builtExe = Join-Path $targetDir 'rsdk' }
+Copy-Item -Path $builtExe -Destination (Join-Path $binDir 'rsdk.exe') -Force
+
+Copy-Item -Path (Join-Path $repoRoot 'templates/powershell/Rsdk.psd1') -Destination $moduleDir -Force
+Copy-Item -Path (Join-Path $repoRoot 'templates/powershell/Rsdk.psm1') -Destination $moduleDir -Force
+Write-Host "Installed rsdk to $rsdkHome"
+
+# Wire $PROFILE exactly like scripts/install.ps1 (guarded block).
+$module = Join-Path $moduleDir 'Rsdk.psd1'
+$profileDirectory = Split-Path -Parent $PROFILE
+New-Item -ItemType Directory -Force -Path $profileDirectory | Out-Null
+if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE | Out-Null }
+$start = '# >>> rsdk initialize >>>'; $end = '# <<< rsdk initialize <<<'
+$profileText = Get-Content -Path $PROFILE -Raw
+if ($profileText -match [regex]::Escape($start) -or $profileText -match '(?i)Import-Module.*rsdk') {
+    Write-Host "rsdk initialization already appears in $PROFILE; it was not modified."
 } else {
-    & cargo build --release
-    $ExePath = "target\\release\\rsdk.exe"
+    Add-Content -Path $PROFILE -Value "`n$start`nImport-Module '$module' -Force`n$end"
+    Write-Host "✓ Configured PowerShell via $PROFILE."
 }
-
-# Get the PowerShell module path for the current user
-$modulePath = Join-Path -Path $HOME -ChildPath "Documents\PowerShell\Modules"
-
-Write-Host "Installing module in $modulePath"
-
-# Determine the final module installation path
-if (-not $ModuleName) {
-    # If ModuleName is not specified, assume the directory name is the module name
-    $ModuleName = (Get-Item -Path $SourceDirectory).BaseName
-}
-$destinationPath = Join-Path -Path $modulePath -ChildPath $ModuleName
-
-# Remove any existing module installation to ensure a clean install
-if (Test-Path -Path $destinationPath) {
-    Write-Host "Removing existing module at $destinationPath"
-    Remove-Item -Recurse -Force -Path $destinationPath
-}
-# Create the module directory without displaying output
-New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
-
-# Resolve the full path of the executable
-$ExePath = (Resolve-Path -Path $ExePath).Path
-
-# Copy module templates to the default Windows module directory and replace placeholders
-Write-Host "Running module template script with executable path $ExePath"
-& ".\build\windows\Module-Template.ps1" -SourceDir $SourceDirectory -DestinationDir $destinationPath -ExePath $ExePath
-
-Write-Host "Module installed in $destinationPath"
-
-# Attempt to load the module
-Write-Host "Importing module $ModuleName"
-# Remove the module if it's already loaded, to reload the latest version
-Remove-Module -Name $ModuleName -ErrorAction SilentlyContinue
-Import-Module $ModuleName
-
-Write-Host "You may need to run 'Remove-Module $ModuleName' to reload the module in your session."
+Write-Host "Run now: Import-Module '$module' -Force"

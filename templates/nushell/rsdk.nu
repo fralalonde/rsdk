@@ -19,7 +19,6 @@ let rsdk_binary = if 'RSDK_HOME' in $env {
 def --env --wrapped rsdk [...args: string] {
     let temp_file = (mktemp)
     ^$rsdk_binary --shell nushell --envout $temp_file ...$args
-    let command_status = $env.LAST_EXIT_CODE
     if ($temp_file | path exists) {
         # The binary writes one nuon record per variable; merge and apply.
         let envs = (open --raw $temp_file
@@ -33,5 +32,7 @@ def --env --wrapped rsdk [...args: string] {
         }
     }
     rm -f $temp_file
-    $command_status
+    # No trailing `$command_status`: a `def`'s return value is emitted to the
+    # pipeline and printed, unlike fish/bash/zsh `return N` (exit status). The
+    # binary's exit code is already reflected in `$env.LAST_EXIT_CODE`.
 }

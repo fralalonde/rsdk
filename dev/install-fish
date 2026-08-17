@@ -1,38 +1,45 @@
 #!/usr/bin/env fish
+# Build and install rsdk from source for fish. Mirrors what the release
+# installer does for fish (scripts/install.sh `configure_fish`), but uses
+# the local build + templates instead of downloading a release archive.
+#
+# Usage: ./dev/install-fish [--debug]
 
-# Build the executable
-if test "$argv[1]" = "--debug"
-    cargo +nightly build
-    set rsdk_exe "target/debug/rsdk"
+cd (dirname (status --current-filename))/..
+
+set -l rsdk_home "$HOME/.rsdk"
+if set -q RSDK_HOME
+    set rsdk_home "$RSDK_HOME"
+end
+
+set -l target_dir "release"
+if test (count $argv) -gt 0; and test "$argv[1]" = "--debug"
+    cargo build
+    set target_dir "debug"
 else
     cargo build --release
-    set rsdk_exe "target/release/rsdk"
 end
 
-# Install executable to bin dir
-set -l rsdk_home ~/.rsdk
-set -l rsdk_bin $rsdk_home/bin
-mkdir -p $rsdk_bin
-set -l rsdk_bin_exe "$rsdk_bin/rsdk"
-echo "Copy $rsdk_exe to $rsdk_bin_exe"
-if test -f $rsdk_bin_exe
-    rm $rsdk_bin_exe
+mkdir -p "$rsdk_home/bin" "$rsdk_home/shell/fish"
+cp -f "target/$target_dir/rsdk" "$rsdk_home/bin/rsdk"
+chmod +x "$rsdk_home/bin/rsdk"
+cp -f templates/fish/rsdk.fish "$rsdk_home/shell/fish/rsdk.fish"
+
+set -l fish_loader "$HOME/.config/fish/conf.d/rsdk.fish"
+mkdir -p (dirname "$fish_loader")
+if test -f "$fish_loader"; and grep -Fq '# >>> rsdk initialize >>>' "$fish_loader"
+    printf '✓ rsdk initialization already present in %s; not modified.\n' "$fish_loader"
+else
+    printf '# >>> rsdk initialize >>>\nsource "%s"\n# <<< rsdk initialize <<<\n' "$rsdk_home/shell/fish/rsdk.fish" > "$fish_loader"
+    printf '✓ Configured fish via %s.\n' "$fish_loader"
 end
-cp $rsdk_exe $rsdk_bin_exe
-set -l rsdk_exe "$rsdk_bin_exe"
 
-# Install functions
-set -l fish_plugin_dir ~/.config/fish/functions
-mkdir -p $fish_plugin_dir
-echo "Generate $fish_plugin_dir/rsdk.fish using rsdk path $rsdk_bin_exe"
-cat templates/fish/rsdk.fish | sed "s|PUT_RSDK_PATH_HERE|$rsdk_bin_exe|g" > $fish_plugin_dir/rsdk.fish
+set -l comp_file "$HOME/.config/fish/completions/rsdk.fish"
+mkdir -p (dirname "$comp_file")
+if "$rsdk_home/bin/rsdk" completions fish > "$comp_file" 2>/dev/null
+    printf '✓ Installed fish completions: %s\n' "$comp_file"
+else
+    printf '⚠ Could not generate fish completions\n' >&2
+end
 
-# Install plugin
-set -l fish_conf_dir ~/.config/fish/conf.d
-mkdir -p $fish_conf_dir
-cp templates/fish/rsdk_plugin.fish $fish_conf_dir
-echo "Installed fish plugin in $fish_conf_dir"
-
-# Initialize and refresh rsdk in session
-rsdk init
-echo "Refreshed rsdk in session"
+printf '\nActivate in the current session: functions -e rsdk; source "%s"\n' "$fish_loader"

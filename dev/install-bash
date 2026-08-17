@@ -1,7 +1,17 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
+# Build and install rsdk from source for bash. Mirrors what the release
+# installer does for bash (scripts/install.sh `configure_posix bash`), but
+# uses the local build + templates instead of downloading a release archive.
+#
+# Usage: ./dev/install-bash [--debug]
 
-# Build the executable using cargo
-if [[ "$1" == "--debug" ]]; then
+set -eu
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+RSDK_HOME="${RSDK_HOME:-$HOME/.rsdk}"
+
+if [[ "${1:-}" == "--debug" ]]; then
     cargo build
     rsdk_exe="target/debug/rsdk"
 else
@@ -9,23 +19,32 @@ else
     rsdk_exe="target/release/rsdk"
 fi
 
-rsdk_home=~/.rsdk
-rsdk_bin="$rsdk_home"/bin
+mkdir -p "$RSDK_HOME/bin" "$RSDK_HOME/shell/bash"
+cp -f "$rsdk_exe" "$RSDK_HOME/bin/rsdk"
+chmod +x "$RSDK_HOME/bin/rsdk"
+cp -f templates/bash/rsdk.bash "$RSDK_HOME/shell/bash/rsdk.bash"
 
-rm -rf "$rsdk_bin"
-mkdir -p "$rsdk_bin"
+rc_file="$HOME/.bashrc"
+loader="$RSDK_HOME/shell/bash/rsdk.bash"
+touch "$rc_file"
+if grep -Fq '# >>> rsdk initialize >>>' "$rc_file"; then
+    printf '✓ rsdk initialization already present in %s; not modified.\n' "$rc_file"
+else
+    cat >> "$rc_file" <<EOF
 
-cp $rsdk_exe "$rsdk_bin"
-rsdk_exe="$rsdk_bin"/rsdk
+# >>> rsdk initialize >>>
+source "$loader"
+# <<< rsdk initialize <<<
+EOF
+    printf '✓ Configured bash via %s.\n' "$rc_file"
+fi
 
-template_src=templates/bash/rsdk.bash
-template_dst=$rsdk_bin/rsdk.bash
+comp_file="${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions/rsdk"
+mkdir -p "$(dirname "$comp_file")"
+if "$RSDK_HOME/bin/rsdk" completions bash > "$comp_file" 2>/dev/null; then
+    printf '✓ Installed bash completions: %s\n' "$comp_file"
+else
+    printf '⚠ Could not generate bash completions\n' >&2
+fi
 
-cat $template_src | sed "s|PUT_RSDK_PATH_HERE|$rsdk_exe|g" > "$template_dst"
-chmod +x $template_dst
-
-# Output completion message
-echo "Installed rsdk bash to $rsdk_home"
-echo
-echo "Run 'source $template_dst init' to activate rsdk now"
-echo "Run 'echo \"source $template_dst init'\" >> ~/.bashrc' to make it permanent"
+printf '\nActivate in the current session: source "%s"\n' "$loader"
