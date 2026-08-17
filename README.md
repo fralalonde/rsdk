@@ -6,28 +6,9 @@
 
 `rsdk` is a self-contained binary executable, it works the same everywhere and does not require additional packages to be installed.
 
-`rsdk` provides a convenient TUI in addition to the classic command-line interface.
+`rsdk` provides a convenient TUI in addition to the classic command-line interface:
 
 ![TUI demo](docs/demo.gif)
-
-## Why not SDKMAN?
-
-I'm a fan of [SDKMAN](https://sdkman.io/)! But I mainly use fish shell on Linux and Powershell on Windows,
-neither of which are natively supported by SDKMAN (since it is written mostly in bash).
-
-I wrote `rsdk` from scratch and made my own shell-agnostic SDKMAN client.
-Although it is completely independent of SDKMAN _locally_, `rsdk` still relies on SDKMAN servers, indexes and downloads.
-
-**PLEASE - DO NOT BOTHER THE SDKMAN MAINTAINERS IF YOU'RE HAVING TROUBLE WITH RSDK.** 
-
-Both projects are _completely separate_ and rsdk's existence should not be a burden to sdkman in _any_ way. 
-Instead, do not hesitate to open an [issue](https://github.com/fralalonde/rsdk/issues).
-
-`rsdk` does not try to replicate all of SDKMAN:
-
-- there's no offline mode
-- some commands are different
-- tools are installed in the `~/.rsdk/tools` folder (so you can have both `rsdk` and SDKMAN installed at once)
 
 ## Installation
 
@@ -40,6 +21,29 @@ Windows
 ```powershell
 irm https://github.com/fralalonde/rsdk/releases/latest/download/install.ps1 | iex
 ```
+
+The install script detects shells and configures rsdk for each.
+
+To update to the latest `rsdk` version, just run the installer script again.
+
+## rsdk is _not_ SDKMAN!
+
+[SDKMAN](https://sdkman.io/) rocks! But I mainly use fish shell on Linux and Powershell on Windows,
+neither of which are natively supported by SDKMAN (since it is written mostly in bash).
+
+**PLEASE - DO NOT BOTHER THE SDKMAN MAINTAINERS IF YOU'RE HAVING TROUBLE WITH RSDK.**
+
+I wrote `rsdk` from scratch and made my own shell-agnostic SDKMAN replacement.
+Although it is completely independent of SDKMAN _locally_, `rsdk` still relies on SDKMAN network repositories and indexes.
+
+Both projects are _completely separate_ and rsdk's existence should not be a burden to sdkman in _any_ way. 
+Instead, do not hesitate to open an [issue](https://github.com/fralalonde/rsdk/issues).
+
+Take note that `rsdk` does not try to replicate all of SDKMAN:
+
+- there's no offline mode
+- some commands behave differently
+- tools are installed in the `~/.rsdk/tools` folder (so you can have both `rsdk` and SDKMAN installed at the same time)
 
 ## Command Line
 
@@ -59,6 +63,7 @@ irm https://github.com/fralalonde/rsdk/releases/latest/download/install.ps1 | ie
 | Apply `.sdkmanrc` env        | `rsdk env`                        |                              |
 | Install `.sdkmanrc` tools    | `rsdk env install`                |                              |
 | Revert env to defaults       | `rsdk env clear`                  |                              |
+| Enter TUI                    | `rsdk tui`                        |                              |
 | Show help                    | `rsdk --help`                     |                              |
 
 Running `rsdk use <tool> <version>` for a version that isn't installed will
@@ -87,8 +92,6 @@ or — after drilling in — the list of available versions.
 | type any text  | filter the active pane                    |
 | `Enter` on a version | pick an action: Install, Use, Set default, Remove |
 
-
-
 ## Network options
 
 If proxying is required, ``rsdk`` honors the `http_proxy` and `https_proxy` environment variables (same as curl).
@@ -96,10 +99,7 @@ If proxying is required, ``rsdk`` honors the `http_proxy` and `https_proxy` envi
 If required, ``--insecure`` disables certificate validation allowing use of self-signed certificates.
 
 ## Disclaimer
-`rsdk` may spuriously eat your dog even if you didn't have one. 
-
 Although not vibe-coded, AI was used for TUI and install scripts.
 
-## Future
-
-See [issues](https://github.com/fralalonde/rsdk/issues) for a list of planned features.
+Although I tried hard to make `rsdk` reliable and safe, using it may still have unexpected consequences. 
+By running it on your computer, _you_ are solely responsible for what may happen.
