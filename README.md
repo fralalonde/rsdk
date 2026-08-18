@@ -2,7 +2,7 @@
 
 `rsdk` makes it easy to install and juggle with multiple versions of JDK, Maven, Gradle, etc...
 
-`rsdk` works on Windows, Linux, MacOS and integrates with bash, zsh, **powershell**, **fish**, **nushell**
+`rsdk` works on Windows, Linux, MacOS and natively integrates with bash, zsh, **powershell**, **fish**, **nushell**
 
 `rsdk` is a self-contained binary executable, it works the same everywhere and does not require additional packages to be installed.
 
@@ -28,11 +28,10 @@ To update to the latest `rsdk` version, just run the installer script again.
 
 ## rsdk is _not_ SDKMAN!
 
+**PLEASE - DO NOT BOTHER THE SDKMAN MAINTAINERS / COMMUNITY IF YOU'RE HAVING TROUBLE WITH RSDK.**
+
 [SDKMAN](https://sdkman.io/) rocks! But I mainly use fish shell on Linux and Powershell on Windows,
 neither of which are natively supported by SDKMAN (since it is written mostly in bash).
-
-**PLEASE - DO NOT BOTHER THE SDKMAN MAINTAINERS IF YOU'RE HAVING TROUBLE WITH RSDK.**
-
 I wrote `rsdk` from scratch and made my own shell-agnostic SDKMAN replacement.
 Although it is completely independent of SDKMAN _locally_, `rsdk` still relies on SDKMAN network repositories and indexes.
 
@@ -99,7 +98,7 @@ If proxying is required, ``rsdk`` honors the `http_proxy` and `https_proxy` envi
 If required, ``--insecure`` disables certificate validation allowing use of self-signed certificates.
 
 ## Disclaimer
-Although not vibe-coded, AI was used for TUI and install scripts.
-
 Although I tried hard to make `rsdk` reliable and safe, using it may still have unexpected consequences. 
-By running it on your computer, _you_ are solely responsible for what may happen.
+By running it on your computer, _you are solely responsible for what may happen_.
+
+For better or worse, most of `rsdk` was coded without the use of AI.
