@@ -72,14 +72,10 @@ Running with `--debug` enables verbose output and stack traces (equivalent of `R
 
 ## TUI
 
-`rsdk tui` launches an interactive tool browser for
-discovering, installing, and managing JVM tools without having to type commands.
+`rsdk tui` launches an interactive tool browser for discovering, installing, and managing JVM tools without having to type commands.
 
-**Layout:** two panes. Left lists tools (installed ones starred and ranked
-first). Right shows the selected tool's description + installed versions,
-or — after drilling in — the list of available versions.
-
-**Navigation:**
+The left pane shows tools, installed ones starred and ranked first. 
+Right pane the selected tool's description + installed versions, or the list of available versions.
 
 | Key            | Action                                    |
 |----------------|-------------------------------------------|
