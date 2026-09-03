@@ -39,16 +39,24 @@ The Scala compiler and tooling for the JVM.
 $ sdk install scala
 """
 
-# Java uses the pipe-delimited format consumed by decode_java_versions (the
-# version id sits in the 6th field, index 5).
+# Java uses the pipe-delimited table format consumed by decode_java_versions
+# (the identifier sits in the last column). Matches the current SDKMAN API.
 JAVA_VERSIONS = """\
-Available: Java Versions
----
-21.0.6-tem | tem | linux | x64 | tgz | 21.0.6-tem | 21
-17.0.9-tem | tem | linux | x64 | tgz | 17.0.9-tem | 17
-11.0.22-tem | tem | linux | x64 | tgz | 11.0.22-tem | 11
-8.0.402-tem | tem | linux | x64 | tgz | 8.0.402-tem | 8
-25.ea.1-open | open | linux | x64 | tgz | 25.ea.1-open | 25
+================================================================================
+Available Java Versions for Cygwin
+================================================================================
+ Vendor         | Use | Version            | Identifier
+--------------------------------------------------------------------------------
+ Temurin        |     | 21.0.6             | 21.0.6-tem
+                |     | 17.0.9             | 17.0.9-tem
+                |     | 11.0.22            | 11.0.22-tem
+                |     | 8.0.402            | 8.0.402-tem
+ Java.net       |     | 25.ea.1            | 25.ea.1-open
+================================================================================
+ > in use   * installed   + local only
+--------------------------------------------------------------------------------
+ $ sdk install java <Identifier>    install a specific version
+================================================================================
 """
 
 
