@@ -11,4 +11,5 @@ pub mod rsdk_home;
 pub mod sdkman_client;
 pub mod sdkman_decode;
 pub mod shell;
+pub mod state_client;
 pub mod tool_version;

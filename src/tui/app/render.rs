@@ -65,7 +65,7 @@ impl App {
         } else {
             border_block("Tools")
         };
-        let left_items = filter_items(&self.tools, &self.search);
+        let left_items = self.tool_items();
         let left_list = List::new(
             left_items
                 .iter()
@@ -273,22 +273,36 @@ impl App {
                 f.render_stateful_widget(list, area, &mut state.clone());
             }
             ModalState::Done { msg, is_error } => {
-                // Content-sized: width fits the message, height fits one line.
-                let w = (msg.chars().count() as u16 + 6).clamp(16, 70);
-                let h = 3;
+                // Content-sized with word wrap: error strings (HTTP failures
+                // with URLs) wrap to the terminal width instead of truncating
+                // in a single-line box. Height includes the hint line.
+                let max_text_width = f.area().width.saturating_sub(8).max(20) as usize;
+                let wrapped = wrap_text(msg, max_text_width);
+                let text_width =
+                    wrapped.iter().map(|l| l.chars().count()).max().unwrap_or(0) as u16;
+                let w = (text_width + 6).clamp(16, 70).min(f.area().width);
+                let h = (wrapped.len() as u16 + 4).clamp(3, f.area().height);
                 let area = centered_rect_fixed(w, h, f.area());
                 f.render_widget(Clear, area);
                 let color = if *is_error { C_ERROR } else { C_STAR };
                 let block = Block::default()
                     .title(Span::styled(
-                        " Done ",
+                        if *is_error { " Error " } else { " Done " },
                         Style::default().fg(color).add_modifier(Modifier::BOLD),
                     ))
                     .borders(Borders::ALL)
                     .border_type(BorderType::Double)
                     .border_style(Style::default().fg(color));
+                let mut lines: Vec<Line> = wrapped
+                    .iter()
+                    .map(|l| Line::from(Span::styled(l.as_str(), Style::default().fg(color))))
+                    .collect();
+                lines.push(Line::from(Span::styled(
+                    " any key to dismiss",
+                    Style::default().fg(C_DIM),
+                )));
                 f.render_widget(
-                    Paragraph::new(msg.as_str())
+                    Paragraph::new(lines)
                         .block(block)
                         .alignment(Alignment::Center),
                     area,
@@ -324,4 +338,34 @@ fn centered_rect_fixed(width: u16, height: u16, r: Rect) -> Rect {
         width: w,
         height: h,
     }
+}
+
+/// Greedy word wrap for modal messages. URLs without spaces are hard-broken
+/// at the width so long failure URLs never overflow the modal.
+fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for paragraph in text.split('\n') {
+        let mut line = String::new();
+        for word in paragraph.split_whitespace() {
+            // Hard-break a single token longer than the width.
+            let mut rest = word;
+            while rest.chars().count() > max_width {
+                let take: String = rest.chars().take(max_width).collect();
+                if !line.is_empty() {
+                    out.push(std::mem::take(&mut line));
+                }
+                out.push(take);
+                rest = &rest[max_width.min(rest.chars().count())..];
+            }
+            if line.chars().count() + rest.chars().count() + 1 > max_width && !line.is_empty() {
+                out.push(std::mem::take(&mut line));
+            }
+            if !line.is_empty() {
+                line.push(' ');
+            }
+            line.push_str(rest);
+        }
+        out.push(line);
+    }
+    out
 }

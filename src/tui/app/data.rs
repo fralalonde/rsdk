@@ -8,7 +8,7 @@ use color_eyre::Result;
 use rsdk::tool_version::ToolVersion;
 
 use crate::tui::descriptions::parse_tool_descriptions;
-use crate::tui::{filter_items, sort_items, Item};
+use crate::tui::{sort_items, Item};
 
 use super::App;
 
@@ -18,8 +18,28 @@ impl App {
         let installed: HashSet<String> =
             self.rsdk_home.all_installed()?.map(|tv| tv.tool).collect();
 
-        if let Ok(text) = self.sdkman.get_tools_list_text() {
-            self.tool_descriptions = parse_tool_descriptions(&text);
+        // Prefer the State API's structured candidate metadata (name,
+        // description, website); fall back to scraping the legacy text list.
+        self.tool_descriptions.clear();
+        if let Some(info) = self.sdkman.get_candidate_info() {
+            for (tool, c) in info {
+                // Header matches the legacy scrape's "Name (default)" shape;
+                // multi-vendor candidates (java) have no default.
+                let header = match c.default {
+                    Some(d) => format!("{} ({d})", c.name),
+                    None => c.name.clone(),
+                };
+                let mut lines = vec![header];
+                lines.extend(c.description.lines().map(|l| l.trim().to_string()));
+                if !c.website_url.is_empty() {
+                    lines.push(String::new());
+                    lines.push(c.website_url);
+                }
+                self.tool_descriptions.insert(tool, lines);
+            }
+        } else if let Ok(text) = self.sdkman.get_tools_list_text() {
+            let parsed = parse_tool_descriptions(&text);
+            self.tool_descriptions.extend(parsed);
         }
 
         self.tools = names
@@ -40,7 +60,7 @@ impl App {
             self.tool_info.clear();
             return;
         };
-        let items = filter_items(&self.tools, &self.search);
+        let items = self.tool_items();
         let Some(tool) = items.get(i) else {
             self.tool_info.clear();
             return;

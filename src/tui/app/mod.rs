@@ -112,10 +112,20 @@ impl App {
     }
 
     pub(super) fn active_items(&self) -> Vec<Item> {
-        let q = &self.search;
         match self.active {
-            Pane::Left => filter_items(&self.tools, q),
-            Pane::Right => filter_items(&self.versions, q),
+            // The filter only applies to the pane being interacted with; the
+            // inactive pane keeps its full list (so the tool context survives
+            // filtering versions on the right pane).
+            Pane::Left => filter_items(&self.tools, &self.search),
+            Pane::Right => filter_items(&self.versions, &self.search),
+        }
+    }
+
+    /// Tools list, filtered only while the tools pane is active.
+    pub(super) fn tool_items(&self) -> Vec<Item> {
+        match self.active {
+            Pane::Left => filter_items(&self.tools, &self.search),
+            Pane::Right => self.tools.clone(),
         }
     }
 
@@ -169,7 +179,7 @@ impl App {
 
     pub(super) fn selected_tool_name(&self) -> Option<String> {
         let i = self.tools_state.selected()?;
-        let items = filter_items(&self.tools, &self.search);
+        let items = self.tool_items();
         items.get(i).map(|it| it.name.clone())
     }
 

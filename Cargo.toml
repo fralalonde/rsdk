@@ -26,6 +26,7 @@ flate2 = { version = "1", default-features = false, features = ["zlib-rs"] }
 serde_ini = "0.2"
 serde_derive = "1"
 serde = { version = "1.0.213", features = ["derive"] }
+serde_json = "1"
 
 
 crossterm = "0.29"

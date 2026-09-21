@@ -1,4 +1,5 @@
 use crate::rsdk_home::RsdkHome;
+use crate::state_client;
 use crate::{sdkman_client, shell};
 use eyre::bail;
 use log::debug;
@@ -71,7 +72,14 @@ impl ToolVersion {
         let temp_dir = home.temp();
         let work_dir = temp_dir.join("work");
 
-        let archive = api.get_cached_file(tool, &version)?;
+        let archive = Self::fetch_archive(
+            &api,
+            home,
+            tool,
+            &version,
+            &mut |_, _| {},
+            &std::sync::atomic::AtomicBool::new(false),
+        )?;
         debug!("archive is {:?}", archive.file_path());
         tv.install_from_file(&archive, &work_dir, true)?;
         Ok((tv, true))
@@ -96,10 +104,40 @@ impl ToolVersion {
         let temp_dir = home.temp();
         let work_dir = temp_dir.join("work");
 
-        let archive = api.get_cached_file_monitored(tool, version, on_progress, cancel)?;
+        let archive = Self::fetch_archive(&api, home, tool, version, on_progress, cancel)?;
         debug!("archive is {:?}", archive.file_path());
         tv.install_from_file(&archive, &work_dir, true)?;
         Ok((tv, true))
+    }
+
+    /// Download the tool archive, preferring the State API's direct vendor URL
+    /// (fresher than the legacy broker — e.g. java 27 builds are listed there
+    /// but 404 on the broker) and falling back to the broker download when the
+    /// record doesn't resolve or carries no URL.
+    fn fetch_archive(
+        api: &sdkman_client::SdkManClient,
+        home: &RsdkHome,
+        tool: &str,
+        version: &str,
+        on_progress: &mut dyn FnMut(u64, u64),
+        cancel: &std::sync::atomic::AtomicBool,
+    ) -> color_eyre::Result<CacheEntry> {
+        let state = state_client::StateClient::new(&home.cache());
+        let (version_part, distribution) = state_client::split_identifier(version);
+        match state
+            .resolve_version(tool, version_part, distribution)
+            .ok()
+            .filter(|v| !v.url.is_empty())
+        {
+            Some(record) => {
+                debug!("state url for {tool} {version}: {}", record.url);
+                api.get_cached_file_monitored_url(&record.url, on_progress, cancel)
+            }
+            None => {
+                debug!("no state record for {tool} {version}; using legacy broker");
+                api.get_cached_file_monitored(tool, version, on_progress, cancel)
+            }
+        }
     }
 
     fn install_from_file(

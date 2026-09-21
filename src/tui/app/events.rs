@@ -44,7 +44,7 @@ impl App {
                 self.searching = false;
                 self.search.clear();
             }
-            KeyCode::Char(c) if c.is_alphanumeric() => {
+            KeyCode::Char(c) if !c.is_control() => {
                 self.search.push(c);
             }
             KeyCode::Backspace => {
@@ -82,7 +82,7 @@ impl App {
 
     pub(super) fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
         match key.code {
-            KeyCode::Char(c) if c.is_alphanumeric() => {
+            KeyCode::Char(c) if !c.is_control() => {
                 self.searching = true;
                 self.search = c.to_string();
             }

@@ -15,6 +15,16 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+/// Reject non-success HTTP responses *before* anything is written to the
+/// download cache, so error bodies (e.g. SDKMAN broker 503/404 pages) can
+/// never poison the cache.
+fn check_status(status: reqwest::StatusCode, url: &str) -> Result<()> {
+    if !status.is_success() {
+        eyre::bail!("HTTP {status} for {url}");
+    }
+    Ok(())
+}
+
 pub struct CachedHttpClient {
     cache: CacheManager,
     client: Client,
@@ -88,6 +98,17 @@ impl CachedHttpClient {
         Ok(entry)
     }
 
+    /// Download `url` directly, bypassing the broker. Returns the entry and
+    /// whether the file had to be downloaded (`true`) or was cached (`false`).
+    pub fn get_cached_file_monitored_url(
+        &self,
+        url: &str,
+        on_progress: &mut dyn FnMut(u64, u64),
+        cancel: &AtomicBool,
+    ) -> Result<CacheEntry> {
+        self.get_cached_file_monitored(url, on_progress, cancel)
+    }
+
     fn download_to_file(&self, url: &str, file_path: &Path) -> Result<String> {
         let head_response = self
             .client
@@ -114,6 +135,7 @@ impl CachedHttpClient {
             .send()
             .context("Failed to send GET request")?;
         debug!("HTTP response status {}", response.status());
+        check_status(response.status(), url)?;
         if response.status() == 304 {
             return Ok(file_name);
         }
@@ -155,6 +177,7 @@ impl CachedHttpClient {
         on_progress(0, total_size);
 
         let mut response = self.client.get(url).send().context("GET")?;
+        check_status(response.status(), url)?;
         if response.status() == 304 {
             on_progress(total_size, total_size);
             return Ok(file_name);
