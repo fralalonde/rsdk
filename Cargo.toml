@@ -35,6 +35,9 @@ clap_complete_nushell = "4.6.2"
 
 [dev-dependencies]
 uuid = { version = "1", features = ["v4"] }
+# Integration tests build tool archives in memory to serve them from a local
+# fake SDKMAN API; same crate (and features) the extractor already uses.
+zip = { version = "8", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [profile.release]
 opt-level = "z"              # Optimize for binary size

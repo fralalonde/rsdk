@@ -1,7 +1,7 @@
 use crate::rsdk_home::RsdkHome;
 use crate::state_client;
 use crate::{sdkman_client, shell};
-use eyre::bail;
+use eyre::{bail, Context};
 use log::debug;
 use std::fmt::{Display, Formatter};
 use std::fs;
@@ -112,8 +112,8 @@ impl ToolVersion {
 
     /// Download the tool archive, preferring the State API's direct vendor URL
     /// (fresher than the legacy broker — e.g. java 27 builds are listed there
-    /// but 404 on the broker) and falling back to the broker download when the
-    /// record doesn't resolve or carries no URL.
+    /// but 404 on the broker) and falling back to the broker when the record
+    /// doesn't resolve, carries no URL, or the vendor URL itself fails.
     fn fetch_archive(
         api: &sdkman_client::SdkManClient,
         home: &RsdkHome,
@@ -124,14 +124,32 @@ impl ToolVersion {
     ) -> color_eyre::Result<CacheEntry> {
         let state = state_client::StateClient::new(&home.cache());
         let (version_part, distribution) = state_client::split_identifier(version);
-        match state
+        let state_url = state
             .resolve_version(tool, version_part, distribution)
             .ok()
-            .filter(|v| !v.url.is_empty())
-        {
-            Some(record) => {
-                debug!("state url for {tool} {version}: {}", record.url);
-                api.get_cached_file_monitored_url(&record.url, on_progress, cancel)
+            .map(|record| record.url)
+            .filter(|url| !url.is_empty());
+
+        match state_url {
+            Some(url) => {
+                debug!("state url for {tool} {version}: {url}");
+                match api.get_cached_file_monitored_url(&url, on_progress, cancel) {
+                    Ok(entry) => Ok(entry),
+                    // The broker is often down (nginx 503) while vendor URLs
+                    // work, so keep it as a secondary rather than the only path.
+                    Err(e) => {
+                        if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                            return Err(e);
+                        }
+                        log::warn!("download of {url} failed ({e}); trying the SDKMAN broker");
+                        api.get_cached_file_monitored(tool, version, on_progress, cancel)
+                            .with_context(|| {
+                                format!(
+                                    "both the vendor URL ({url}) and the SDKMAN broker failed for {tool} {version}"
+                                )
+                            })
+                    }
+                }
             }
             None => {
                 debug!("no state record for {tool} {version}; using legacy broker");
@@ -196,8 +214,20 @@ impl ToolVersion {
         // some vendor JDK archives store files without the executable bit
         // (SDKMAN chmods post-extraction for the same reason). Keep this so
         // `java` is always runnable regardless of how the archive was built.
+        //
+        // Best-effort only: not every archive has a top-level `bin/` (jmc ships
+        // its launcher under "Azul Mission Control/bin"), and failing here used
+        // to abort an otherwise complete install, leaving the tool in place but
+        // reported as an error.
         #[cfg(unix)]
-        make_all_files_executable(&self.bin())?;
+        if self.bin().is_dir() {
+            if let Err(e) = make_all_files_executable(&self.bin()) {
+                log::warn!(
+                    "could not mark {} files executable: {e}",
+                    self.bin().display()
+                );
+            }
+        }
         Ok(())
     }
 

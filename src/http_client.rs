@@ -1,5 +1,5 @@
 use color_eyre::Result;
-use eyre::{Context, ContextCompat};
+use eyre::Context;
 use log::debug;
 use reqwest::blocking::Client;
 use reqwest::header;
@@ -52,6 +52,9 @@ impl CachedHttpClient {
     pub fn get_text(&self, url: &str) -> Result<String> {
         debug!("getting text for {url}");
         let response = self.client.get(url).send()?;
+        // Reject error pages here too: otherwise a 503 HTML body reaches the
+        // JSON/CSV decoders and surfaces as a confusing parse error.
+        check_status(response.status(), url)?;
         let content = response.text()?;
         Ok(content)
     }
@@ -110,25 +113,9 @@ impl CachedHttpClient {
     }
 
     fn download_to_file(&self, url: &str, file_path: &Path) -> Result<String> {
-        let head_response = self
-            .client
-            .head(url)
-            .send()
-            .context("Failed to send HEAD request")?;
-        let headers = head_response.headers().clone();
-        let total_size = headers
-            .get(header::CONTENT_LENGTH)
-            .and_then(|len| len.to_str().ok()?.parse::<u64>().ok())
-            .context("Failed to get content length")?;
-
-        let file_name = headers
-            .get(header::CONTENT_DISPOSITION)
-            .and_then(|value| extract_filename_from_disposition(value.to_str().ok()?))
-            .unwrap_or("")
-            .to_string();
-
-        let pb = initialize_progress_bar(total_size, &file_name);
-
+        // Read length/filename from the GET response instead of a separate
+        // HEAD: the SDKMAN broker answers HEAD with 503 while GET redirects
+        // fine, and some vendor CDNs omit Content-Length on HEAD.
         let mut response = self
             .client
             .get(url)
@@ -136,18 +123,28 @@ impl CachedHttpClient {
             .context("Failed to send GET request")?;
         debug!("HTTP response status {}", response.status());
         check_status(response.status(), url)?;
-        if response.status() == 304 {
-            return Ok(file_name);
-        }
+
+        let total_size = content_length(response.headers()).unwrap_or(0);
+        let file_name = disposition_file_name(response.headers()).unwrap_or_default();
+        let pb = initialize_progress_bar(total_size, &file_name);
 
         let mut cache_file = File::create(file_path).context("Failed to create cache file")?;
         let mut buffer = [0; 8192];
-        while let Ok(bytes_read) = response.read(&mut buffer) {
-            if bytes_read == 0 {
-                break;
+        loop {
+            match response.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(bytes_read) => {
+                    cache_file.write_all(&buffer[..bytes_read])?;
+                    pb.inc(bytes_read as u64);
+                }
+                // Truncated transfer: drop the partial body so a short archive
+                // never ends up cached and extracted.
+                Err(e) => {
+                    drop(cache_file);
+                    let _ = std::fs::remove_file(file_path);
+                    return Err(e).context(format!("Failed to read body for {url}"));
+                }
             }
-            cache_file.write_all(&buffer[..bytes_read])?;
-            pb.inc(bytes_read as u64);
         }
         pb.finish_with_message("Download completed");
 
@@ -161,27 +158,15 @@ impl CachedHttpClient {
         on_progress: &mut dyn FnMut(u64, u64),
         cancel: &AtomicBool,
     ) -> Result<String> {
-        let head_response = self.client.head(url).send().context("HEAD")?;
-        let headers = head_response.headers().clone();
-        let total_size = headers
-            .get(header::CONTENT_LENGTH)
-            .and_then(|len| len.to_str().ok()?.parse::<u64>().ok())
-            .context("content length")?;
-
-        let file_name = headers
-            .get(header::CONTENT_DISPOSITION)
-            .and_then(|value| extract_filename_from_disposition(value.to_str().ok()?))
-            .unwrap_or("")
-            .to_string();
-
-        on_progress(0, total_size);
-
         let mut response = self.client.get(url).send().context("GET")?;
+        debug!("HTTP response status {}", response.status());
         check_status(response.status(), url)?;
-        if response.status() == 304 {
-            on_progress(total_size, total_size);
-            return Ok(file_name);
-        }
+
+        // Progress can start as soon as the response headers land, so the
+        // total is known before the first chunk without a HEAD round-trip.
+        let total_size = content_length(response.headers()).unwrap_or(0);
+        let file_name = disposition_file_name(response.headers()).unwrap_or_default();
+        on_progress(0, total_size);
 
         let mut cache_file = File::create(file_path).context("create cache file")?;
         let mut buffer = [0u8; 8192];
@@ -192,15 +177,43 @@ impl CachedHttpClient {
                 let _ = std::fs::remove_file(file_path);
                 eyre::bail!("download cancelled");
             }
-            let bytes_read = response.read(&mut buffer).context("read chunk")?;
-            if bytes_read == 0 {
-                break;
+            match response.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(bytes_read) => {
+                    cache_file.write_all(&buffer[..bytes_read])?;
+                    downloaded += bytes_read as u64;
+                    on_progress(
+                        if total_size > 0 {
+                            downloaded.min(total_size)
+                        } else {
+                            downloaded
+                        },
+                        total_size,
+                    );
+                }
+                Err(e) => {
+                    drop(cache_file);
+                    let _ = std::fs::remove_file(file_path);
+                    return Err(e).context(format!("Failed to read body for {url}"));
+                }
             }
-            cache_file.write_all(&buffer[..bytes_read])?;
-            downloaded += bytes_read as u64;
-            on_progress(downloaded.min(total_size), total_size);
         }
 
         Ok(file_name)
     }
+}
+
+/// `Content-Length` as a byte count, when the server sends one.
+fn content_length(headers: &header::HeaderMap) -> Option<u64> {
+    headers
+        .get(header::CONTENT_LENGTH)
+        .and_then(|len| len.to_str().ok()?.parse::<u64>().ok())
+}
+
+/// Archive file name advertised by `Content-Disposition`.
+fn disposition_file_name(headers: &header::HeaderMap) -> Option<String> {
+    headers
+        .get(header::CONTENT_DISPOSITION)
+        .and_then(|value| extract_filename_from_disposition(value.to_str().ok()?))
+        .map(|name| name.to_string())
 }

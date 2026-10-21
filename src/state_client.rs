@@ -4,8 +4,8 @@
 //! Serves candidates (name/description/website) and per-candidate version
 //! records (platform/distribution/URL) as plain JSON, replacing the legacy
 //! `/2` endpoints whose pipe-and-tilde tables need bespoke decoding
-//! (`sdkman_decode.rs`). Version records also carry direct vendor URLs and
-//! checksum fields — groundwork for broker-free downloads later.
+//! (`sdkman_decode.rs`). Version records also carry direct vendor URLs, which
+//! installs download from first; the legacy broker is only a fallback.
 
 use color_eyre::Result;
 use eyre::Context;
