@@ -248,7 +248,17 @@ impl ToolVersion {
     }
 
     pub fn make_default(&self) -> color_eyre::Result<()> {
-        point_symlink(&self.rsdk.default_symlink_path(&self.tool), &self.path())
+        point_symlink(&self.rsdk.default_symlink_path(&self.tool), &self.path())?;
+        // `init` advertises `<tool>/current/bin` on PATH, so a default with no
+        // `current` would leave the tool invisible in new shells. Converge: the
+        // first default also becomes the active version, until `use` says
+        // otherwise (an existing `current` is never overridden here).
+        if !resolve_symlink(&self.rsdk.current_symlink_path(&self.tool))
+            .is_some_and(|target| target.is_dir())
+        {
+            self.make_current()?;
+        }
+        Ok(())
     }
 
     /// Point the tool's `current` symlink at this version and emit the

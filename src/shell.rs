@@ -7,7 +7,7 @@ use std::io::Write;
 pub fn set_env_var_after_exit(name: &str, value: &str) -> io::Result<()> {
     if let Some(shell) = args::shell() {
         if let Some(envout) = args::envout() {
-            let mut file = OpenOptions::new().append(true).open(&envout)?;
+            let mut file = OpenOptions::new().append(true).create(true).open(&envout)?;
 
             debug!("setting {} to {}", name, value);
 

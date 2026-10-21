@@ -31,27 +31,28 @@ fn main() -> color_eyre::Result<()> {
     if let Some(command) = &cli.command {
         match command {
             Command::Init => {
-                let default_tools = rsdk_home.all_defaults()?;
                 let mut paths = vec![];
 
-                // Add each default tool's stable `current/bin` to PATH. The
-                // `current` symlink is what `use` / `env` flip, so PATH never
-                // needs to be rewritten after this (same model as SDKMAN).
-                for default_version in default_tools {
-                    let current_bin = default_version
-                        .path()
-                        .parent()
-                        .map(|tool_dir| tool_dir.join("current").join("bin"))
-                        .expect("tool version path has a tool dir parent");
-                    paths.push(current_bin);
+                // PATH carries each tool's stable `current/bin` and `current`
+                // is what `use` / `env` flip, so these entries never need
+                // rewriting. Resolve (and materialize) `current` first: a tool
+                // that only has a `default` — or only a legacy `*_HOME` —
+                // would otherwise contribute a dangling PATH entry and stay
+                // invisible in new shells.
+                for tool in installed_tools(&rsdk_home)? {
+                    let Some(current) = current_tv(&rsdk_home, &tool)? else {
+                        debug!("no current version for {tool}; leaving it off PATH");
+                        continue;
+                    };
+                    paths.push(rsdk_home.tool_dir(&tool).join("current").join("bin"));
                     debug!(
                         "setting env var {:?} to {:?}",
-                        default_version.home(),
-                        default_version.path()
+                        current.home(),
+                        current.path()
                     );
                     shell::set_env_var_after_exit(
-                        &default_version.home(),
-                        &default_version.path().to_string_lossy(),
+                        &current.home(),
+                        &current.path().to_string_lossy(),
                     )?;
                 }
 
