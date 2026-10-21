@@ -14,21 +14,41 @@ use std::process::Command;
 
 const RSDK: &str = env!("CARGO_BIN_EXE_rsdk");
 
-/// A throwaway `~/.rsdk` with the given tools/versions fabricated on disk.
+// Paths are assembled component by component: joining a single
+// "a/b/c" string keeps the forward slashes in the displayed path, which no
+// longer matches what the binary emits on Windows.
+
+fn root(home: &Path) -> PathBuf {
+    home.join(".rsdk")
+}
+
+fn tool_dir(home: &Path, tool: &str) -> PathBuf {
+    root(home).join("tools").join(tool)
+}
+
+fn version_dir(home: &Path, tool: &str, version: &str) -> PathBuf {
+    tool_dir(home, tool).join(version)
+}
+
+fn current_link(home: &Path, tool: &str) -> PathBuf {
+    tool_dir(home, tool).join("current")
+}
+
+fn current_bin(home: &Path, tool: &str) -> PathBuf {
+    current_link(home, tool).join("bin")
+}
+
+/// A throwaway rsdk root with the given tools/versions fabricated on disk.
 fn fake_home(tag: &str) -> PathBuf {
     let home = env::temp_dir().join(format!("rsdk-init-test-{tag}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&home);
-    fs::create_dir_all(home.join(".rsdk/tools")).unwrap();
+    fs::create_dir_all(root(&home).join("tools")).unwrap();
     home
 }
 
+/// Fabricate an installed version: `<tool>/<version>/bin` on disk.
 fn fake_version(home: &Path, tool: &str, version: &str) {
-    let dir = home
-        .join(".rsdk/tools")
-        .join(tool)
-        .join(version)
-        .join("bin");
-    fs::create_dir_all(dir).unwrap();
+    fs::create_dir_all(version_dir(home, tool, version).join("bin")).unwrap();
 }
 
 fn symlink(target: &Path, link: &Path) {
@@ -46,7 +66,7 @@ fn run_init(home: &Path) -> String {
         // RSDK_HOME (not HOME) is what the binary honors, so the child gets a
         // private root on every platform — `directories` ignores HOME on
         // Windows, where the runner's real profile would be used instead.
-        .env("RSDK_HOME", home.join(".rsdk"))
+        .env("RSDK_HOME", root(home))
         .env("HOME", home)
         .env("PATH", "/usr/bin:/bin")
         .args([
@@ -91,6 +111,15 @@ fn tool_path_entries(snippet: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// The `<TOOL>_HOME` value emitted by init, if any.
+fn emitted_home(snippet: &str, tool: &str) -> Option<String> {
+    snippet
+        .lines()
+        .find(|line| line.contains(&format!("{}_HOME '", tool.to_uppercase())))
+        .and_then(|line| line.split('\'').nth(1))
+        .map(|v| v.to_string())
+}
+
 #[test]
 fn init_materializes_current_for_a_default_only_tool() {
     let home = fake_home("default-only");
@@ -98,33 +127,35 @@ fn init_materializes_current_for_a_default_only_tool() {
     fake_version(&home, "java", "25.0.4-tem");
     // Legacy state: a default but no `current`.
     symlink(
-        &home.join(".rsdk/tools/java/25.0.4-tem"),
-        &home.join(".rsdk/tools/java/default"),
+        &version_dir(&home, "java", "25.0.4-tem"),
+        &tool_dir(&home, "java").join("default"),
     );
 
     let snippet = run_init(&home);
 
     // `init` must have converged the symlink instead of advertising a dead
     // PATH entry.
-    let current = home.join(".rsdk/tools/java/current");
+    let current = current_link(&home, "java");
     assert!(
         current.is_dir(),
         "init did not create the java current symlink"
     );
     assert_eq!(
         fs::read_link(&current).unwrap(),
-        home.join(".rsdk/tools/java/25.0.4-tem")
+        version_dir(&home, "java", "25.0.4-tem")
     );
     assert!(
-        tool_path_entries(&snippet).contains(&current.join("bin").display().to_string()),
+        tool_path_entries(&snippet).contains(&current_bin(&home, "java").display().to_string()),
         "java current/bin missing from PATH: {snippet}"
     );
     // The *_HOME var follows the resolved current version.
-    assert!(
-        snippet.contains(&format!(
-            "JAVA_HOME '{}'",
-            home.join(".rsdk/tools/java/25.0.4-tem").display()
-        )),
+    assert_eq!(
+        emitted_home(&snippet, "java"),
+        Some(
+            version_dir(&home, "java", "25.0.4-tem")
+                .display()
+                .to_string()
+        ),
         "JAVA_HOME not emitted: {snippet}"
     );
 }
@@ -135,8 +166,8 @@ fn init_includes_current_only_tool_and_skips_unresolvable_one() {
     // current but no default: previously left out of PATH entirely.
     fake_version(&home, "maven", "3.9.9");
     symlink(
-        &home.join(".rsdk/tools/maven/3.9.9"),
-        &home.join(".rsdk/tools/maven/current"),
+        &version_dir(&home, "maven", "3.9.9"),
+        &current_link(&home, "maven"),
     );
     // Installed but neither default nor current: nothing to activate.
     fake_version(&home, "scala", "3.7.0");
@@ -145,12 +176,7 @@ fn init_includes_current_only_tool_and_skips_unresolvable_one() {
     let entries = tool_path_entries(&snippet);
 
     assert!(
-        entries.contains(
-            &home
-                .join(".rsdk/tools/maven/current/bin")
-                .display()
-                .to_string()
-        ),
+        entries.contains(&current_bin(&home, "maven").display().to_string()),
         "maven current/bin missing from PATH: {snippet}"
     );
     assert!(
@@ -167,26 +193,28 @@ fn init_keeps_an_existing_current() {
     fake_version(&home, "java", "21.0.6-tem");
     fake_version(&home, "java", "25.0.4-tem");
     symlink(
-        &home.join(".rsdk/tools/java/25.0.4-tem"),
-        &home.join(".rsdk/tools/java/default"),
+        &version_dir(&home, "java", "25.0.4-tem"),
+        &tool_dir(&home, "java").join("default"),
     );
     symlink(
-        &home.join(".rsdk/tools/java/21.0.6-tem"),
-        &home.join(".rsdk/tools/java/current"),
+        &version_dir(&home, "java", "21.0.6-tem"),
+        &current_link(&home, "java"),
     );
 
     let snippet = run_init(&home);
 
     assert_eq!(
-        fs::read_link(home.join(".rsdk/tools/java/current")).unwrap(),
-        home.join(".rsdk/tools/java/21.0.6-tem"),
+        fs::read_link(current_link(&home, "java")).unwrap(),
+        version_dir(&home, "java", "21.0.6-tem"),
         "init overrode the active version with the default"
     );
-    assert!(
-        snippet.contains(&format!(
-            "JAVA_HOME '{}'",
-            home.join(".rsdk/tools/java/21.0.6-tem").display()
-        )),
+    assert_eq!(
+        emitted_home(&snippet, "java"),
+        Some(
+            version_dir(&home, "java", "21.0.6-tem")
+                .display()
+                .to_string()
+        ),
         "JAVA_HOME should follow current, not default: {snippet}"
     );
 }
@@ -196,8 +224,8 @@ fn init_is_idempotent() {
     let home = fake_home("idempotent");
     fake_version(&home, "java", "25.0.4-tem");
     symlink(
-        &home.join(".rsdk/tools/java/25.0.4-tem"),
-        &home.join(".rsdk/tools/java/default"),
+        &version_dir(&home, "java", "25.0.4-tem"),
+        &tool_dir(&home, "java").join("default"),
     );
 
     let first = run_init(&home);
