@@ -120,12 +120,23 @@ fn zip_archive(top: &str, files: &[(&str, &[u8])]) -> Vec<u8> {
 }
 
 /// Version record JSON the State API client understands (single record,
-/// native platform, no distribution — the common non-java shape).
+/// `UNIVERSAL` platform — resolves on every host, no distribution — the common
+/// non-java shape).
 fn version_record(version: &str, url: &str) -> Vec<u8> {
     format!(
-        r#"[{{"candidate":"tool","version":"{version}","platform":"LINUX_X64","url":"{url}","visible":true}}]"#
+        r#"[{{"candidate":"tool","version":"{version}","platform":"UNIVERSAL","url":"{url}","visible":true}}]"#
     )
     .into_bytes()
+}
+
+/// Broker download path for this host's platform. The client appends its own
+/// compile-time `PLATFORM` (linuxx64, darwinarm64, …), so the fake server has
+/// to register the same one to be found on every runner.
+fn broker_path() -> String {
+    format!(
+        "api/broker/download/tool/1.0/{}",
+        rsdk::sdkman_client::PLATFORM
+    )
 }
 
 fn test_home() -> RsdkHome {
@@ -163,10 +174,7 @@ fn vendor_url_failure_falls_back_to_the_broker() {
                 )),
             ),
             ("vendor/tool-1.0.zip".to_string(), status(503)),
-            (
-                "api/broker/download/tool/1.0/linuxx64".to_string(),
-                ok(archive),
-            ),
+            (broker_path(), ok(archive)),
         ])
     });
 
@@ -184,7 +192,7 @@ fn vendor_url_failure_falls_back_to_the_broker() {
         "vendor URL was not tried"
     );
     assert!(
-        api.requested("/api/broker/download/tool/1.0/linuxx64"),
+        api.requested(&format!("/{}", broker_path())),
         "broker fallback was not tried"
     );
 }
