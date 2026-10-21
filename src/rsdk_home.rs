@@ -11,6 +11,14 @@ pub struct RsdkHome {
 
 impl RsdkHome {
     pub fn new() -> io::Result<RsdkHome> {
+        // `RSDK_HOME` relocates the root, matching scripts/install.sh (which
+        // installs into `${RSDK_HOME:-$HOME/.rsdk}`); without this the binary
+        // would keep looking at `~/.rsdk` after a relocated install. An empty
+        // value is ignored so a stray `RSDK_HOME=` doesn't target the cwd.
+        if let Some(root) = std::env::var_os("RSDK_HOME").filter(|v| !v.is_empty()) {
+            return RsdkHome::at(PathBuf::from(root));
+        }
+
         let user_dirs = UserDirs::new().expect("Failed to get user directories");
         let home_dir = user_dirs.home_dir();
 

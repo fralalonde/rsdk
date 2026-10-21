@@ -43,6 +43,10 @@ fn symlink(target: &Path, link: &Path) {
 fn run_init(home: &Path) -> String {
     let envout = home.join("envout.fish");
     let output = Command::new(RSDK)
+        // RSDK_HOME (not HOME) is what the binary honors, so the child gets a
+        // private root on every platform — `directories` ignores HOME on
+        // Windows, where the runner's real profile would be used instead.
+        .env("RSDK_HOME", home.join(".rsdk"))
         .env("HOME", home)
         .env("PATH", "/usr/bin:/bin")
         .args([
@@ -62,15 +66,25 @@ fn run_init(home: &Path) -> String {
     fs::read_to_string(&envout).unwrap_or_default()
 }
 
+/// PATH list separator of the platform the client was built for.
+fn path_separator() -> char {
+    if cfg!(windows) {
+        ';'
+    } else {
+        ':'
+    }
+}
+
 /// PATH entries emitted for rsdk-managed tools, as absolute paths.
 fn tool_path_entries(snippet: &str) -> Vec<String> {
+    let sep = path_separator();
     snippet
         .lines()
         .find(|line| line.contains(" PATH "))
         .and_then(|line| line.split('\'').nth(1))
         .map(|path| {
-            path.split(':')
-                .filter(|p| p.contains("/.rsdk/tools/"))
+            path.split(sep)
+                .filter(|p| p.contains("rsdk") && p.contains("tools"))
                 .map(|p| p.to_string())
                 .collect()
         })
@@ -140,7 +154,7 @@ fn init_includes_current_only_tool_and_skips_unresolvable_one() {
         "maven current/bin missing from PATH: {snippet}"
     );
     assert!(
-        entries.iter().all(|p| !p.contains("/scala/")),
+        entries.iter().all(|p| !p.contains("scala")),
         "scala has no current version and must stay off PATH: {snippet}"
     );
 }
