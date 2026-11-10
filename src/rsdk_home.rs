@@ -7,6 +7,8 @@ use std::{fs, io};
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RsdkHome {
     pub root: PathBuf,
+    #[cfg(windows)]
+    publish_windows_path: bool,
 }
 
 impl RsdkHome {
@@ -15,22 +17,31 @@ impl RsdkHome {
         // installs into `${RSDK_HOME:-$HOME/.rsdk}`); without this the binary
         // would keep looking at `~/.rsdk` after a relocated install. An empty
         // value is ignored so a stray `RSDK_HOME=` doesn't target the cwd.
-        if let Some(root) = std::env::var_os("RSDK_HOME").filter(|v| !v.is_empty()) {
-            return RsdkHome::at(PathBuf::from(root));
-        }
+        let rsdk_dir = std::env::var_os("RSDK_HOME")
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                let user_dirs = UserDirs::new().expect("Failed to get user directories");
+                user_dirs.home_dir().join(".rsdk")
+            });
 
-        let user_dirs = UserDirs::new().expect("Failed to get user directories");
-        let home_dir = user_dirs.home_dir();
-
-        let rsdk_dir = home_dir.join(".rsdk");
-
-        RsdkHome::at(rsdk_dir)
+        let rsdk = RsdkHome::at(rsdk_dir)?;
+        #[cfg(windows)]
+        let rsdk = RsdkHome {
+            publish_windows_path: std::env::var_os("RSDK_DISABLE_WINDOWS_PATH").is_none(),
+            ..rsdk
+        };
+        Ok(rsdk)
     }
 
     /// Create an `RsdkHome` rooted at an arbitrary directory. Used by tests to
     /// avoid touching the real `~/.rsdk`.
     pub fn at(rsdk_dir: PathBuf) -> io::Result<RsdkHome> {
-        let rsdk = RsdkHome { root: rsdk_dir };
+        let rsdk = RsdkHome {
+            root: rsdk_dir,
+            #[cfg(windows)]
+            publish_windows_path: false,
+        };
         create_dir_all(rsdk.tools())?;
         create_dir_all(rsdk.cache())?;
         create_dir_all(rsdk.temp())?;
@@ -44,6 +55,12 @@ impl RsdkHome {
 
     pub fn current_symlink_path(&self, tool: &str) -> PathBuf {
         self.tool_dir(tool).join("current")
+    }
+
+    /// Test homes created with `at` must not change the real user's registry.
+    #[cfg(windows)]
+    pub fn publishes_windows_path(&self) -> bool {
+        self.publish_windows_path
     }
 
     #[allow(unused)]

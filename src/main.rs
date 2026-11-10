@@ -44,6 +44,10 @@ fn main() -> color_eyre::Result<()> {
                         debug!("no current version for {tool}; leaving it off PATH");
                         continue;
                     };
+                    #[cfg(windows)]
+                    if rsdk_home.publishes_windows_path() {
+                        rsdk::windows_environment::ensure_tool_path(&rsdk_home, &tool)?;
+                    }
                     paths.push(rsdk_home.tool_dir(&tool).join("current").join("bin"));
                     debug!(
                         "setting env var {:?} to {:?}",

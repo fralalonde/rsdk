@@ -67,6 +67,7 @@ fn run_init(home: &Path) -> String {
         // private root on every platform — `directories` ignores HOME on
         // Windows, where the runner's real profile would be used instead.
         .env("RSDK_HOME", root(home))
+        .env("RSDK_DISABLE_WINDOWS_PATH", "1")
         .env("HOME", home)
         .env("PATH", "/usr/bin:/bin")
         .args([

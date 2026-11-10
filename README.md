@@ -26,6 +26,13 @@ The install script detects shells and configures rsdk for each.
 
 To update to the latest `rsdk` version, just run the installer script again.
 
+On Windows, activating any tool also adds its stable
+`~/.rsdk/tools/<tool>/current/bin` directory to the current user's registry
+`Path`. New GUI apps launched after activation can find that tool without
+loading a shell profile. `rsdk init` adds entries for tools that are already
+active. Each entry stays fixed when rsdk switches versions.
+Set `RSDK_DISABLE_WINDOWS_PATH=1` to skip registry updates when running rsdk.
+
 ## rsdk is _not_ SDKMAN!
 
 **PLEASE - DO NOT BOTHER THE SDKMAN MAINTAINERS / COMMUNITY IF YOU'RE HAVING TROUBLE WITH RSDK.**

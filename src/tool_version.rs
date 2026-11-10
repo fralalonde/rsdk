@@ -263,12 +263,16 @@ impl ToolVersion {
 
     /// Point the tool's `current` symlink at this version and emit the
     /// corresponding `*_HOME` environment variable for the wrapper to apply.
-    /// `PATH` is intentionally left untouched: it already contains the stable
-    /// `<tool>/current/bin` entry emitted by `rsdk init`, so flipping the
-    /// symlink is all that is needed (same model as SDKMAN).
+    /// The shell's `PATH` is left untouched: it already contains the stable
+    /// `<tool>/current/bin` entry emitted by `rsdk init`. On Windows, each
+    /// tool's stable bin path is also published once to the user's registry `Path`.
     pub fn make_current(&self) -> color_eyre::Result<()> {
         point_symlink(&self.rsdk.current_symlink_path(&self.tool), &self.path())?;
         shell::set_env_var_after_exit(&self.home(), &self.path().to_string_lossy())?;
+        #[cfg(windows)]
+        if self.rsdk.publishes_windows_path() {
+            crate::windows_environment::ensure_tool_path(&self.rsdk, &self.tool)?;
+        }
         Ok(())
     }
 

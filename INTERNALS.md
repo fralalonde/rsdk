@@ -26,6 +26,13 @@ once and sets `*_HOME` to the default's resolved path. Afterwards:
   `*_HOME`. `PATH` already points at `current/bin`, so it is left untouched.
 - `rsdk env` / `rsdk env clear` do the same, driven by `.sdkmanrc` / defaults.
 
+On Windows, when rsdk activates any tool, it also publishes the stable
+`tools/<tool>/current/bin` link in the current user's registry `Path` and
+broadcasts the environment change. This lets newly launched GUI apps find
+rsdk-managed tools. `rsdk init` publishes entries for already active tools.
+Repeated activation does not duplicate entries, and version switches only
+change the symlinks.
+
 ### Shell completions
 
 Completions are generated from the installed binary:

@@ -1562,6 +1562,7 @@ dependencies = [
  "symlink",
  "tar",
  "uuid",
+ "windows-sys 0.61.2",
  "zip",
 ]
 

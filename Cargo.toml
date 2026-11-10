@@ -33,6 +33,9 @@ crossterm = "0.29"
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 clap_complete_nushell = "4.6.2"
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_Registry", "Win32_UI_WindowsAndMessaging"] }
+
 [dev-dependencies]
 uuid = { version = "1", features = ["v4"] }
 # Integration tests build tool archives in memory to serve them from a local

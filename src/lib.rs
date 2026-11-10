@@ -13,3 +13,5 @@ pub mod sdkman_decode;
 pub mod shell;
 pub mod state_client;
 pub mod tool_version;
+#[cfg(windows)]
+pub mod windows_environment;
