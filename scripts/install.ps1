@@ -52,16 +52,28 @@ if (-not $NoModifyShell) {
         if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE | Out-Null }
         $start = '# >>> rsdk initialize >>>'; $end = '# <<< rsdk initialize <<<'
         $profileText = Get-Content -Path $PROFILE -Raw
-        if ($profileText -match [regex]::Escape($start) -or $profileText -match '(?i)(Import-Module|\\.).*rsdk|rsdk.*init') {
+        $standardBlock = "$start`nImport-Module '$module' -Force`nrsdk init`n$end"
+        if ($profileText -match [regex]::Escape($start)) {
+            $lineBreak = '(?:' + [char]13 + ')?' + [char]10
+            $managedBlockPattern = '(?ms)^' + [regex]::Escape($start) + $lineBreak + '.*?' + $lineBreak + [regex]::Escape($end) + '$'
+            if ($profileText -notmatch [regex]::Escape($start) + '(?s:.*?)rsdk init(?s:.*?)' + [regex]::Escape($end)) {
+                $profileText = [regex]::Replace($profileText, $managedBlockPattern, $standardBlock, 1)
+                Set-Content -Path $PROFILE -Value $profileText -NoNewline
+                Write-Host "Updated rsdk initialization in $PROFILE."
+            } else {
+                Write-Host "rsdk initialization already appears in $PROFILE; it was not modified."
+            }
+            Write-Host "Standard block:`n$standardBlock"
+        } elseif ($profileText -match '(?i)(Import-Module|\\.).*rsdk|rsdk.*init') {
             Write-Host "rsdk initialization already appears in $PROFILE; it was not modified."
-            Write-Host "Standard block:`n$start`nImport-Module '$module' -Force`n$end"
+            Write-Host "Standard block:`n$standardBlock"
         } else {
-            Add-Content -Path $PROFILE -Value "`n$start`nImport-Module '$module' -Force`n$end"
+            Add-Content -Path $PROFILE -Value "`n$standardBlock"
             Write-Host "✓ Configured PowerShell via $PROFILE."
         }
-        Write-Host "Run now: ${bold}Import-Module '$module' -Force${reset}"
-    } else { Write-Host "Shell configuration not modified. Run now: ${bold}Import-Module '$module' -Force${reset}" }
-} else { Write-Host "Shell configuration not modified. Run now: ${bold}Import-Module '$module' -Force${reset}" }
+        Write-Host "Run now: ${bold}Import-Module '$module' -Force; rsdk init${reset}"
+    } else { Write-Host "Shell configuration not modified. Run now: ${bold}Import-Module '$module' -Force; rsdk init${reset}" }
+} else { Write-Host "Shell configuration not modified. Run now: ${bold}Import-Module '$module' -Force; rsdk init${reset}" }
 # nushell on Windows keeps its config at %APPDATA%\nushell\config.nu. nushell
 # runs fine without a config.nu, so detect it via the nu binary too and create
 # the config when needed (idempotent; no extra prompt).
